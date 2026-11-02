@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "live_share": {
+    "enabled": false
+  },
+  "git": {
+    "fetch_opt_in": false,
+    "interval_seconds": 3600
+  },
+  "telemetry": {
+    "enabled": false
+  },
+  "inference": {
+    "extra_llm": false
+  }
+}

@@ -1,0 +1,1 @@
+{"id":"241b6fe1b85f","ts":"2026-11-02T16:08:24+00:00","agent":"claude-code","task":"Auth redesign","area":"auth","files":["auth/login.py"],"kind":"decision","text":"Use session cookies","shareable":false,"expires_at":null}
