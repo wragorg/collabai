@@ -2,7 +2,7 @@
 
 Privacy-first collaboration for AI-assisted development. Local-first. No extra LLM. No daemon. No cloud backend.
 
-Status: Day 1 MVP skeleton. `collabai init/status/doctor/uninstall` only. Memory, adapters, Live Share, and Git awareness land in later increments.
+Status: working CLI (`init`, `status`, `doctor`, `uninstall`, `remember`, `context`, `decide`, both adapters, Live Share, Git awareness). The `curl -fsSL` installer exists in `install.sh` (checksum-verified, `~/.local/bin`, no sudo) and awaits proof against the first public release. OpenCode has no dedicated adapter and stays an unproven CLI fallback (`context`/`remember` run by hand) until a hook PoC proves otherwise.
 
 ## Install (manual, for now)
 
@@ -13,8 +13,6 @@ python3 -m collabai init
 python3 -m collabai status
 python3 -m collabai doctor
 ```
-
-A `curl -fsSL` installer is planned for release (Day 4). It will download a release tarball, verify it, install to `~/.local/bin`, and never need sudo. Not implemented yet.
 
 ## Privacy defaults
 
