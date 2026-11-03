@@ -30,9 +30,14 @@ Files: `.collabai/memory/ephemeral.jsonl` and `decisions.jsonl`. One JSON
 object per line with `id`, `ts`, `agent`, `task` (≤200), `area`, `files`
 (≤20), `kind`, `text` (≤500), `shareable` (default false), `expires_at`.
 Ephemeral expiry is 7 days; decisions do not expire. Appends use `fcntl.flock`
-when available. `_ensure_file` creates `0700` dirs and `0600` files. Basic
-secret patterns (private-key header, AWS key, provider tokens) raise
-`refused:` and store nothing — never rely on file-extension filtering.
+when available. `_ensure_file` creates `0700` dirs and `0600` files and
+warns on stderr if `chmod` fails instead of passing silently. Secret
+patterns (private-key header, AWS/GitHub/provider tokens, JWTs, bearer
+and `key=`/`password=` style assignments) are checked across task, text,
+area, files, and agent together and raise `refused:`, storing nothing.
+File paths are validated: absolute paths, `..` traversal, and secret
+filenames (`.env`, key and cert files) refuse the whole record.
+Never rely on file-extension filtering alone.
 Dedup is by recency order on read (`load_records` sorts newest first).
 
 ### Context injection (`render_context`)
@@ -74,6 +79,11 @@ serves `127.0.0.1` only via `ThreadingHTTPServer`; every endpoint requires
 `Authorization: Bearer` compared with `hmac.compare_digest`; bodies over
 4 KB get `413`; logging is silenced so tokens never reach logs. `run_host`
 prints port and token to the host terminal once and revokes on Ctrl-C.
+Requests first pass a Host-header allowlist (`127.0.0.1`/`localhost` only,
+else `403`, blocking DNS rebinding) and a per-IP token bucket (60 requests
+per 60 seconds, then `429`), checked before auth. `render_feed` displays
+remote events as bannered untrusted data with control characters stripped;
+they are never instructions.
 
 Client (`get_token`, `post_event`, `fetch_feed`) reads the token only from
 `COLLABAI_TOKEN` or a hidden prompt — never a `--token` flag (it would show
@@ -97,18 +107,31 @@ Thin wrapper: `--question`, `--options "A|B"` (2–3, split on `|`), `--choice`
 `Options: ... Approved: ...`. Agents surface alternatives; only the explicit
 choice is persisted.
 
+### Planned: `bot` (not yet designed)
+
+A terminal companion that helps the developer juggle several agent
+sessions (Claude Code, Codex, later OpenCode) at a glance. Design with the
+owner before building; it must stay inside the invariants: foreground,
+on-demand, and interactive only while the command runs — no permanent
+daemon, no background process, no extra inference. It may only track
+structured metadata (sessions, agents, tasks, decisions, live events);
+never transcripts, diffs, prompts, or secrets. Fun is a feature: it should
+look good and have personality, within stdlib-only terminal output.
+
 ### Installer (`install.sh`)
 
-Draft `curl -fsSL` flow: check `python3` ≥ 3.11, download the versioned
-release tarball to a temp dir, extract under `~/.local/share/collabai-<v>`,
-write a `~/.local/bin/collabai` shim, no sudo. Replace the `<owner>`
-placeholder and add checksum verification before the first real release.
-Always instruct users to download-then-inspect rather than blind-piping.
+Implemented `curl -fsSL` flow: enforce `python3` ≥ 3.11, download the
+versioned release tarball (`wrag20/collabai`, `v<v>`) over HTTPS only,
+verify the detached `.sha256` before extraction (fail closed), extract
+under `~/.local/share/collabai-<v>`, verify `collabai/__main__.py` layout,
+write a `~/.local/bin/collabai` shim, no sudo. Always instruct users to
+download-then-inspect rather than blind-piping. Clean-install proof is
+pending the first public release.
 
 ## Repo shape and extension points
 
 Keep `collabai/` (code), `docs/` (guides), `demo/` (synthetic project, to be
-added), and `tests/` (owner-run scripts, to be added) separate. A new agent
+added), and `tests/` (focused owner-run suite, stdlib `unittest`) separate. A new agent
 reuses the adapter contract: `install` (diff + approval), `on_session_start`
 (filtered string or empty), `on_session_end` (structured fields only),
 `uninstall`. A new Live event type needs a schema entry plus a privacy review.

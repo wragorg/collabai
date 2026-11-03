@@ -21,10 +21,22 @@ ALLOWED_TYPES = {
 MAX_BODY = 4096
 MAX_EVENTS = 100
 SESSION_SECONDS = 15 * 60
+RATE_LIMIT = 60
+RATE_WINDOW = 60.0
 
 
 def make_token() -> str:
     return secrets.token_urlsafe(32)
+
+
+def _rate_limited(state: State, ip: str) -> bool:
+    now = time.time()
+    hits = [t for t in state.hits.get(ip, []) if now - t < RATE_WINDOW]
+    if len(hits) >= RATE_LIMIT:
+        state.hits[ip] = hits
+        return True
+    state.hits[ip] = hits + [now]
+    return False
 
 
 def valid_event(obj: object) -> tuple[bool, str]:
@@ -52,6 +64,7 @@ class State:
         self.expires_at = time.time() + SESSION_SECONDS
         self.events: list[dict] = []
         self.seq = 0
+        self.hits: dict[str, list[float]] = {}
 
     def expired(self) -> bool:
         return time.time() > self.expires_at
@@ -91,6 +104,14 @@ def make_handler(state: State):
             pass  # never log tokens or bodies
 
         def _require_auth(self) -> bool:
+            host = self.headers.get("Host", "")
+            name = host.rsplit(":", 1)[0].strip().lower().strip("[]")
+            if name not in ("127.0.0.1", "localhost"):
+                _send(self, 403, {"error": "forbidden host"})
+                return False
+            if _rate_limited(state, self.client_address[0]):
+                _send(self, 429, {"error": "rate limited"})
+                return False
             if not _authorized(self, state):
                 _send(self, 401, {"error": "unauthorized or expired"})
                 return False

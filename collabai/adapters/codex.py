@@ -11,7 +11,7 @@ BLOCK = """<!-- collabai:start -->
 ## collabai (private, local-first)
 
 - Relevant project knowledge lives in `.collabai/` (gitignored, local-only).
-- To recall: run `python3 -m collabai context --files "<paths>"` and use only returned lines.
+- To recall: run `python3 -m collabai context --files "<paths>"` and use only returned lines; do not read, print, or paste file contents to enrich them.
 - To save: run `python3 -m collabai remember --task "<short intent>" --area "<area>" --files "<paths>" --text "<summary>" [--decision]`.
 - Never paste full transcripts, prompts, secrets, or source contents into memory.
 - Task intent stays private unless saved with `--shareable`.

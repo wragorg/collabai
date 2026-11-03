@@ -58,13 +58,13 @@ def cmd_init(args: argparse.Namespace) -> int:
         return 0
     try:
         os.chmod(state, 0o700)
-    except OSError:
-        pass
+    except OSError as exc:
+        print(f"warning: could not lock down {state}: {exc}", file=sys.stderr)
     cfg_path.write_text(json.dumps(DEFAULT_CONFIG, indent=2) + "\n", encoding="utf-8")
     try:
         os.chmod(cfg_path, 0o600)
-    except OSError:
-        pass
+    except OSError as exc:
+        print(f"warning: could not lock down {cfg_path}: {exc}", file=sys.stderr)
     print(f"initialized collabai in {root} (private state in {STATE_DIR_NAME}/)")
     print("private memory is local-only. live share is disabled by default.")
     return 0
@@ -209,7 +209,9 @@ def cmd_live_feed(args: argparse.Namespace) -> int:
     from .live.client import fetch_feed, get_token
 
     code, body = fetch_feed(args.port, get_token(), since=args.since)
-    print(body)
+    from .live.client import render_feed
+
+    print(render_feed(body))
     return 0 if code == 200 else 1
 
 

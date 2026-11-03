@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -23,7 +24,31 @@ _SECRET_PATTERNS = [
     re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
     re.compile(r"\bsk-(live|test)-[A-Za-z0-9]{8,}\b"),
     re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{8,}\b"),
+    re.compile(r"\b(ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{8,}\b"),
+    re.compile(r"\bgithub_pat_[A-Za-z0-9-_]{8,}\b"),
+    re.compile(r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b"),
+    re.compile(r"(?i)\b(api[_-]?key|api[_-]?secret|access[_-]?token|auth[_-]?token|secret[_-]?key)\b\s*[:=]\s*\S+"),
+    re.compile(r"(?i)\bbearer\s+[A-Za-z0-9\-._~+/]+=*"),
+    re.compile(r"(?i)\bpassword\s*[:=]\s*\S+"),
 ]
+
+_SECRET_FILENAMES = {".env", ".env.local", "id_rsa", "id_ed25519", "id_ecdsa"}
+_SECRET_SUFFIXES = (".pem", ".key", ".p12", ".pfx", ".gpg", ".asc")
+
+
+def _bad_path(path: str) -> str:
+    s = (path or "").strip()
+    if not s:
+        return "empty path"
+    if s.startswith(("~", "/")) or (len(s) > 2 and s[1] == ":"):
+        return "absolute path"
+    parts = s.replace("\\", "/").split("/")
+    if ".." in parts:
+        return "parent traversal"
+    base = parts[-1].lower()
+    if base in _SECRET_FILENAMES or base.endswith(_SECRET_SUFFIXES):
+        return "secret filename"
+    return ""
 
 
 def _now() -> datetime:
@@ -50,8 +75,8 @@ def _ensure_file(path: Path) -> None:
     try:
         os.chmod(path.parent, 0o700)
         os.chmod(path, 0o600)
-    except OSError:
-        pass
+    except OSError as exc:
+        print(f"warning: could not lock down {path}: {exc}", file=sys.stderr)
 
 
 def _append(path: Path, record: dict) -> None:
@@ -75,7 +100,11 @@ def save_record(root: Path, kind: str, agent: str, task: str, area: str,
     task = (task or "")[:MAX_TASK]
     text = (text or "")[:MAX_TEXT]
     files = [f[:200] for f in (files or [])][:MAX_FILES]
-    if looks_like_secret(task + "\n" + text):
+    for entry in files:
+        reason = _bad_path(entry)
+        if reason:
+            raise ValueError(f"refused: path {reason}: {entry}")
+    if looks_like_secret("\n".join([task, text, area or "", *files, agent or ""])):
         raise ValueError("refused: looks like a secret; not stored")
     now = _now()
     record = {

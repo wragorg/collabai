@@ -13,8 +13,13 @@ operator creates their own SSH tunnel. Nothing is exposed publicly.
 ## Join side (joining developer, their own command)
 
 ```bash
-ssh -N -L <LOCAL_PORT>:127.0.0.1:<HOST_PORT> <host-user>@<host-address>
+ssh -o StrictHostKeyChecking=yes -o ExitOnForwardOnly=yes -N \
+  -i ~/.ssh/collabai-forward \
+  -L <LOCAL_PORT>:127.0.0.1:<HOST_PORT> <host-user>@<host-address>
 ```
+
+Verify the host key on first connect. If the key ever changes, stop and
+contact the host developer out of band — do not bypass the warning.
 
 Then in a second terminal:
 
