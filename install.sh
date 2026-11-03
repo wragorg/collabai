@@ -4,7 +4,7 @@
 #        sh install.sh [--version X.Y.Z]
 set -eu
 
-OWNER="${COLLABAI_OWNER:-wrag20}"
+OWNER="${COLLABAI_OWNER:-wragorg}"
 VERSION="${COLLABAI_VERSION:-0.1.0}"
 PREFIX="${HOME}/.local"
 BIN="${PREFIX}/bin/collabai"
