@@ -285,6 +285,14 @@ def cmd_decide(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_bot(args: argparse.Namespace) -> int:
+    from pathlib import Path as _P
+
+    from .bot import run_bot
+
+    return run_bot(_P.cwd(), port=args.port, once=args.once)
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="collabai", description="collaborative intelligence, local-first")
     p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
@@ -347,6 +355,10 @@ def build_parser() -> argparse.ArgumentParser:
     pd2.add_argument("--files", default="")
     pd2.add_argument("--agent", default="manual")
     pd2.set_defaults(func=cmd_decide)
+    pbot = sub.add_parser("bot", help="foreground companion panel (Pip, metadata only)")
+    pbot.add_argument("--port", type=int, default=None, help="live host port (optional)")
+    pbot.add_argument("--once", action="store_true", help="print panel once and exit")
+    pbot.set_defaults(func=cmd_bot)
     return p
 
 
