@@ -90,7 +90,7 @@ if [ ! -f "${SRC}/collabai/__main__.py" ]; then
   exit 1
 fi
 mkdir -p "${PREFIX}/bin"
-printf '#!/bin/sh\nexec python3 "%s/collabai/__main__.py" "$@"\n' "${SRC}" > "${BIN}"
+printf '#!/bin/sh\nPYTHONPATH="%s:${PYTHONPATH:-}" exec python3 -m collabai "$@"\n' "${SRC}" > "${BIN}"
 chmod +x "${BIN}"
 echo "installed to ${BIN}. ensure ${PREFIX}/bin is on PATH."
 "${BIN}" --version
