@@ -14,17 +14,17 @@ from pathlib import Path
 
 MENU: list[tuple[str, str, str, str]] = [
     ("1", "RIGHT NOW", "See who's doing what", "Collab Bot"),
-    ("9", "RIGHT NOW", "Answer an agent question", "Inbox"),
-    ("2", "DO SOMETHING", "Save a note or decision", "Remember"),
-    ("3", "DO SOMETHING", "Find a past decision", "Recall"),
-    ("4", "DO SOMETHING", "Record a choice we approved", "Decide"),
-    ("5", "DO SOMETHING", "Send a decision to my pair", "Share"),
-    ("10", "DO SOMETHING", "Run an agent here", "Launch"),
-    ("12", "DO SOMETHING", "Collab Bot AI extras (needs Meta key)", "AI"),
-    ("6", "CHECK", "Did upstream change my files?", "Git check"),
-    ("7", "CHECK", "Is my setup OK?", "Doctor"),
-    ("8", "CHECK", "Leave", "Quit"),
+    ("2", "RIGHT NOW", "Answer an agent question", "Inbox"),
+    ("3", "DO SOMETHING", "Save a note or decision", "Remember"),
+    ("4", "DO SOMETHING", "Find a past decision", "Recall"),
+    ("5", "DO SOMETHING", "Record a choice we approved", "Decide"),
+    ("6", "DO SOMETHING", "Send a decision to my pair", "Share"),
+    ("7", "DO SOMETHING", "Run an agent here", "Launch"),
+    ("8", "DO SOMETHING", "Collab Bot AI extras (needs Meta key)", "AI"),
+    ("9", "CHECK", "Did upstream change my files?", "Git check"),
+    ("10", "CHECK", "Is my setup OK?", "Doctor"),
     ("11", "PLAY", "Quick game while you wait", "Games"),
+    ("12", "LEAVE", "Leave", "Quit"),
 ]
 
 LOGO = "C O L L A B A I"
@@ -44,6 +44,16 @@ def render_splash(version: str, tick: int = 0, color: bool = False) -> str:
     return "\n".join(lines)
 
 
+def render_top_line(tick: int, color: bool = False, alert: bool = False) -> str:
+    """One light animated line for the very top of the screen."""
+    from .bot import orbit_beacon, paint, spin_frame
+
+    beacon = orbit_beacon(3, tick, "clear", tty=True)
+    if alert:
+        return paint(f"!! Collab Bot {beacon} AGENT NEEDS YOU: pick 2 (Inbox) !!", "warn", color)
+    return paint(f"Collab Bot {beacon} {spin_frame(tick)} pair-programming companion", "pip", color)
+
+
 def render_menu(version: str, tick: int = 0, color: bool = False,
                 suggest: str = "", notice: str = "",
                 width: int | None = None, height: int | None = None) -> str:
@@ -54,7 +64,7 @@ def render_menu(version: str, tick: int = 0, color: bool = False,
     size = shutil.get_terminal_size((80, 24))
     width = width or size.columns
     height = height or size.lines
-    rows = render_splash(version, tick, color).splitlines()
+    rows = [render_top_line(tick, color)] + render_splash(version, tick, color).splitlines()
     if notice:
         rows.append(paint(f"  !! {notice}", "warn", color))
     group = ""
@@ -87,7 +97,7 @@ def render_idle(tick: int, color: bool = False) -> str:
     return paint(f"Collab Bot {beacon}", "pip", color) + paint(" > ", "dim", color)
 
 
-def _read_line_live(tick: int, color: bool) -> tuple[str | None, int]:
+def _read_line_live(tick: int, color: bool, alert_fn=None) -> tuple[str | None, int]:
     """Read one line char-by-char, redrawing the beacon while idle.
 
     Returns (line, tick). Line is None when live mode is unavailable and the
@@ -115,6 +125,22 @@ def _read_line_live(tick: int, color: bool) -> tuple[str | None, int]:
             ready, _, _ = select.select([fd], [], [], 0.45)
             if not ready:
                 idle += 1
+                notice = ""
+                if alert_fn is not None:
+                    try:
+                        notice = str(alert_fn() or "")
+                    except Exception:
+                        notice = ""
+                if notice:
+                    from .bot import paint as _paint
+
+                    # Bell + flashing top banner + one alert line at the prompt.
+                    sys.stdout.write("\a\0337\033[H" + render_top_line(tick + idle, color, alert=True).ljust(64) + "\0338")
+                    sys.stdout.write("\r\x1b[K" + _paint(f"!! {notice}: press Enter, then pick 2 (Inbox)", "warn", color))
+                    sys.stdout.flush()
+                    continue
+                # Light animation at the top too: rewrite line 1, then restore the cursor.
+                sys.stdout.write("\0337\033[H" + render_top_line(tick + idle, color).ljust(64) + "\0338")
                 sys.stdout.write("\r\x1b[K" + render_idle(tick + idle, color) + "".join(buf))
                 sys.stdout.flush()
                 continue
@@ -329,7 +355,7 @@ def _share_form(root: Path) -> None:
     if line:
         print(f"copy this to the other developer:\n{line}")
     else:
-        print("no decision to share yet — save one first (menu 4).")
+        print("no decision to share yet — save one first (menu 5).")
 
 
 def _git_check(root: Path) -> None:
@@ -500,22 +526,24 @@ def run_harness(root: Path, input_fn=input) -> int:
         if not _state_ready(root):
             _wizard(root, input_fn)
         tick = 0
+        alerted: set[str] = set()
         while True:
             snapshot = build_snapshot(load_records(root))
             _, say, _cmd = next_hint(snapshot, [])
-            from .notify import list_pending
+            from .notify import list_pending, pending_alert
 
+            alert_fn = (lambda: pending_alert(root, alerted)) if _state_ready(root) else None
             pending = list_pending(root) if _state_ready(root) else []
-            notice = f"{len(pending)} agent question(s) waiting: pick 9 (Inbox)" if pending else ""
+            notice = f"{len(pending)} agent question(s) waiting: pick 2 (Inbox)" if pending else ""
             if tty:
                 sys.stdout.write("\033[2J\033[H")
             print(render_menu(__version__, tick, color, suggest=say, notice=notice))
             if live:
-                picked, tick = _read_line_live(tick, color)
+                picked, tick = _read_line_live(tick, color, alert_fn=alert_fn)
                 choice = picked if picked is not None else _ask(input_fn, "> ")
             else:
                 choice = _ask(input_fn, "> ")
-            if choice in ("q", "8"):
+            if choice in ("q", "12"):
                 print("Collab Bot: bye for now.")
                 return 0
             if choice == "":
@@ -526,29 +554,29 @@ def run_harness(root: Path, input_fn=input) -> int:
                 tick += 1
                 continue
             elif choice == "2":
-                _remember_form(root, input_fn)
+                _inbox_form(root, input_fn)
             elif choice == "3":
-                _recall_form(root, input_fn)
+                _remember_form(root, input_fn)
             elif choice == "4":
-                _decide_form(root, input_fn)
+                _recall_form(root, input_fn)
             elif choice == "5":
-                _share_form(root)
+                _decide_form(root, input_fn)
             elif choice == "6":
-                _git_check(root)
+                _share_form(root)
             elif choice == "7":
+                _launch_form(root, input_fn)
+            elif choice == "8":
+                _ai_form(root, input_fn)
+            elif choice == "9":
+                _git_check(root)
+            elif choice == "10":
                 import argparse
 
                 from .cli import cmd_doctor
 
                 cmd_doctor(argparse.Namespace())
-            elif choice == "9":
-                _inbox_form(root, input_fn)
-            elif choice == "10":
-                _launch_form(root, input_fn)
             elif choice == "11":
                 _games_form(root, input_fn)
-            elif choice == "12":
-                _ai_form(root, input_fn)
             else:
                 print(f"no such pick: {choice}")
                 tick += 1

@@ -16,12 +16,22 @@ from unittest.mock import patch
 
 from collabai import games, meta_ai, notify
 from collabai.agents import looks_like_question
-from collabai.harness import _files_prompt, list_project_files
+from collabai.harness import MENU, _files_prompt, list_project_files, render_top_line
 
 
 def _scripted(lines):
     it = iter(lines)
     return lambda _prompt="": next(it)
+
+
+class MenuOrderTests(unittest.TestCase):
+    def test_numbers_sorted_in_display_order(self):
+        self.assertEqual([int(k) for k, *_ in MENU], list(range(1, 13)))
+
+    def test_top_line_animates_without_ansi_by_default(self):
+        self.assertNotEqual(render_top_line(0), render_top_line(1))
+        self.assertNotIn("\x1b", render_top_line(0))
+        self.assertIn("Collab Bot", render_top_line(0))
 
 
 class PickerTests(unittest.TestCase):
@@ -67,6 +77,20 @@ class InboxTests(unittest.TestCase):
             self.assertEqual(notify.list_pending(root), [])
             mode = oct((root / ".collabai" / "inbox" / f"q-{rec['id']}.json").stat().st_mode)
             self.assertTrue(mode.endswith("600"))
+
+    def test_pending_alert_fires_once_per_question(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            alerted: set[str] = set()
+            self.assertEqual(notify.pending_alert(root, alerted), "")
+            first = notify.ask_question(root, "codex", "Cookies or tokens?")
+            text = notify.pending_alert(root, alerted)
+            self.assertIn("1 agent question", text)
+            self.assertIn("codex", text)
+            self.assertEqual(notify.pending_alert(root, alerted), "")
+            notify.answer_question(root, first["id"], "cookies")
+            notify.ask_question(root, "claude", "Ship it?")
+            self.assertIn("claude", notify.pending_alert(root, alerted))
 
     def test_secret_question_refused(self):
         with tempfile.TemporaryDirectory() as tmp:

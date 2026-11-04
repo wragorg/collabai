@@ -145,6 +145,38 @@ def read_answer(root: Path, qid: str) -> str | None:
     return str(rec["answer"]) if rec and rec.get("answer") else None
 
 
+def pending_alert(root: Path, alerted: set[str]) -> str:
+    """Alert text for questions not yet alerted on; updates `alerted`.
+
+    Empty string means nothing new. Callers ring the bell / flash the
+    banner when this returns text, so each question alerts exactly once.
+    """
+    new = [rec for rec in list_pending(root) if rec.get("id") not in alerted]
+    if not new:
+        return ""
+    alerted.update(str(rec["id"]) for rec in new)
+    agents = ", ".join(sorted({str(rec.get("agent", "agent")) for rec in new}))
+    return f"{len(new)} agent question(s) waiting from {agents}"
+
+
+def desktop_notify(title: str, message: str) -> None:
+    """Best-effort OS notification (watch mode). Never raises, never blocks."""
+    import shutil
+    import subprocess
+
+    text = (message or "")[:200].replace("\\", "\\\\").replace('"', '\\"')
+    try:
+        if shutil.which("osascript"):
+            script = f'display notification "{text}" with title "{title}" sound name "Ping"'
+            subprocess.run(["osascript", "-e", script], timeout=5,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+        elif shutil.which("notify-send"):
+            subprocess.run(["notify-send", title, text], timeout=5,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+
 def watch_inbox(root: Path, interval: float = 2.0, once: bool = False, out=None) -> int:
     """Foreground watcher (opt-in). Prints new questions; Ctrl-C stops it."""
     stream = out if out is not None else sys.stdout
@@ -159,7 +191,9 @@ def watch_inbox(root: Path, interval: float = 2.0, once: bool = False, out=None)
                 seen.add(rec["id"])
                 print(f"\aagent question [{rec['id']}] from {rec['agent']}: {rec['question']}",
                       file=stream, flush=True)
-                print("answer it in the harness (menu 9) or leave it pending.", file=stream)
+                desktop_notify("collabai: agent needs you",
+                               f"{rec['agent']}: {rec['question']}")
+                print("answer it in the harness (menu 2) or leave it pending.", file=stream)
             if once:
                 return 0
             time.sleep(max(0.5, interval))
