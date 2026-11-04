@@ -1,5 +1,9 @@
 # SSH tunnel guide (two machines, one loopback)
 
+> **Roadmap reference — not a current v1.0.0 capability.** Live Share is
+> deferred. This guide is kept for the revival design only. The `live`
+> subcommands still run locally with a deferred notice.
+
 Live Share binds `127.0.0.1` only and never listens on any network. A second
 machine joins by forwarding a local port to the host's loopback through SSH.
 Nothing is exposed publicly. The host below runs on either machine; the worked
@@ -31,7 +35,8 @@ Joiner command (run on THEIR machine, their own SSH login):
 Keep this terminal running for the whole session:
 
 ```bash
-ssh -o StrictHostKeyChecking=yes -o ExitOnForwardOnly=yes -N \
+ssh -N -o StrictHostKeyChecking=yes -o ExitOnForwardFailure=yes \
+  -o ServerAliveInterval=30 -o ServerAliveCountMax=3 \
   -L 8797:127.0.0.1:8797 <you>@<this-host>
 ```
 

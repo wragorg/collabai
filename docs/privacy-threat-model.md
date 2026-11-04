@@ -23,7 +23,7 @@ What is refused:
   over-long values, control characters, and secret-shaped values are
   rejected with `400`. Nothing is stored.
 
-Live Share boundaries:
+Live Share boundaries (roadmap — deferred, not a shipped v1.0.0 workflow):
 
 - `127.0.0.1` only. No LAN bind, no relay, no discovery. A second machine
   joins through its operator's own `ssh -L` tunnel (see `ssh-tunnel.md`).

@@ -1,4 +1,4 @@
-"""Terminal companion (Pip). Foreground only, stdlib only, metadata only.
+"""Terminal companion (Collab Bot). Foreground only, stdlib only, metadata only.
 
 Run on demand with `collabai bot`. It reads structured memory records and,
 optionally, a running Live Share feed. It never reads transcripts, prompts,
@@ -8,6 +8,7 @@ Every cross-session move it suggests is printed for the human to run by hand.
 
 from __future__ import annotations
 
+import os
 import sys
 import time
 from datetime import datetime, timezone
@@ -26,6 +27,37 @@ STALE_MINUTES = 30
 TABLE_WHO = 12
 TABLE_AREA = 10
 TABLE_TASK = 22
+
+
+PALETTE = {"pip": "36", "good": "32", "warn": "33", "bad": "31", "dim": "90"}
+MOOD_PAINT = {"clear": "good", "overlap": "warn", "sleepy": "dim", "celebrate": "pip"}
+
+
+def wants_color(tty: bool) -> bool:
+    return bool(tty) and "NO_COLOR" not in os.environ
+
+
+def wants_anim(tty: bool) -> bool:
+    return bool(tty) and "COLLABAI_NO_ANIM" not in os.environ
+
+
+def paint(text: str, name: str, enabled: bool) -> str:
+    if not enabled or name not in PALETTE:
+        return text
+    return f"\x1b[{PALETTE[name]}m{text}\x1b[0m"
+
+
+def boot_line(tick: int, tty: bool = True) -> str:
+    """One deterministic boot frame: stars, then the beacon assembles."""
+    stars = " ".join(
+        "*" if (i * 7 + tick * 3) % 4 == 0 else "·" for i in range(9)
+    )
+    if not tty:
+        return stars
+    if tick <= 0:
+        return stars
+    beacon = orbit_beacon(min(tick, 3), tick, "clear", tty=True)
+    return f"{stars}  Collab Bot {beacon}"
 
 
 def spin_frame(tick: int, tty: bool = True) -> str:
@@ -146,7 +178,7 @@ def build_peer_rows(events: list[dict] | None) -> list[dict]:
 
 def mood_for(snapshot: dict, events: list[dict] | None = None,
              now: datetime | None = None) -> tuple[str, str, str]:
-    """Derive Pip mood purely from metadata. Returns (key, face, quip)."""
+    """Derive Collab Bot mood purely from metadata. Returns (key, face, quip)."""
     if events and any(str(e.get("type", "")) == "task.completed" for e in events if isinstance(e, dict)):
         face, quip = FACES["celebrate"]
         return "celebrate", face, f"{quip} {burst()}"
@@ -228,7 +260,10 @@ def render_panel(snapshot: dict, events: list[dict] | None = None,
     peers = build_peer_rows(events)
     n_local = len(snapshot["agents"])
     beacon = orbit_beacon(n_local + len(peers), tick, mood_key, tty=tty)
-    header = f"{pulse_dot(tick)} collabai pulse · Pip {beacon} {face} {quip}"
+    color = wants_color(tty)
+    header = f"{pulse_dot(tick)} collabai pulse · Collab Bot {beacon} {face} {quip}"
+    if color:
+        header = paint(header, MOOD_PAINT[mood_key], True)
     lines = [header]
     if events is None:
         live = "live: off"
@@ -256,9 +291,10 @@ def render_panel(snapshot: dict, events: list[dict] | None = None,
         )
         for entry in local_rows:
             mark = "!" if entry["area"] in snapshot["overlaps"] else " "
+            shown = paint(mark, "warn", color) if mark == "!" else mark
             age = _idle_label(entry["ts"], now=now)
             lines.append(
-                f"{mark} L {_fit(entry['agent'], TABLE_WHO, tty)} "
+                f"{shown} L {_fit(entry['agent'], TABLE_WHO, tty)} "
                 f"{_fit(entry['area'], TABLE_AREA, tty)} "
                 f"{_fit(entry['task'], TABLE_TASK, tty)} "
                 f"{(age or '-'):>5} {_row_state_local(entry, snapshot, now)}"
@@ -428,7 +464,7 @@ def run_bot(root: Path, port: int | None = None, once: bool = False,
                 stream.write("\033[2J\033[H")
             print(render_panel(snapshot, events, tick=tick, tty=tty), file=stream)
             _, say, cmd = next_hint(snapshot, peers)
-            print(f"Pip suggests: {say}", file=stream)
+            print(f"Collab Bot suggests: {say}", file=stream)
             if cmd:
                 print(f"  run: {cmd}", file=stream)
             if once:
@@ -436,7 +472,7 @@ def run_bot(root: Path, port: int | None = None, once: bool = False,
             tick = _animate_wait(tick, tty)
             answer = input_fn("> [Enter refresh · r relay line · q quit] ").strip().lower()
             if answer == "q":
-                print("Pip: bye for now.", file=stream)
+                print("Collab Bot: bye for now.", file=stream)
                 return 0
             if answer == "r":
                 line = relay_line(snapshot)
@@ -446,5 +482,5 @@ def run_bot(root: Path, port: int | None = None, once: bool = False,
                     print("no decision to relay yet.", file=stream)
             tick += 1
     except (KeyboardInterrupt, EOFError):
-        print("\nPip: bye for now.", file=stream)
+        print("\nCollab Bot: bye for now.", file=stream)
         return 0

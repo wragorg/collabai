@@ -1,11 +1,11 @@
 #!/bin/sh
 # collabai installer. Download, inspect, then run — never blind-pipe.
-# Usage: curl -fsSL https://github.com/wrag20/collabai/releases/latest/download/install.sh -o install.sh
+# Usage: curl -fsSL https://github.com/wragorg/collabai/releases/latest/download/install.sh -o install.sh
 #        sh install.sh [--version X.Y.Z]
 set -eu
 
 OWNER="${COLLABAI_OWNER:-wragorg}"
-VERSION="${COLLABAI_VERSION:-0.1.0}"
+VERSION="${COLLABAI_VERSION:-1.0.0}"
 PREFIX="${HOME}/.local"
 BIN="${PREFIX}/bin/collabai"
 
@@ -46,9 +46,9 @@ if ! python3 -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 11) e
 fi
 
 if [ -z "${OWNER}" ] || [ "${OWNER}" = "<owner>" ]; then
-  echo "release owner is not configured: set COLLABAI_OWNER=wrag20 and re-run." >&2
+  echo "release owner is not configured: set COLLABAI_OWNER=wragorg and re-run." >&2
   echo "This is YOU, the maintainer who publishes collabai releases on GitHub;" >&2
-  echo "the download URL is https://github.com/wrag20/collabai/releases/..." >&2
+  echo "the download URL is https://github.com/wragorg/collabai/releases/..." >&2
   echo "Tool users do not change this; they only inspect and run this script." >&2
   exit 1
 fi

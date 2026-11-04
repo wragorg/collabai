@@ -1,4 +1,4 @@
-"""Bot (Pip) tests (stdlib unittest only). Owner-run: python3 -m unittest discover -s tests -v."""
+"""Bot (Collab Bot) tests (stdlib unittest only). Owner-run: python3 -m unittest discover -s tests -v."""
 
 from __future__ import annotations
 
@@ -6,14 +6,18 @@ import unittest
 from datetime import datetime, timedelta, timezone
 
 from collabai.bot import (
+    boot_line,
     build_peer_rows,
     build_snapshot,
     burst,
     mood_for,
     next_hint,
     orbit_beacon,
+    paint,
     render_panel,
     spin_frame,
+    wants_anim,
+    wants_color,
 )
 
 NOW = datetime(2026, 11, 3, 12, 0, tzinfo=timezone.utc)
@@ -113,6 +117,27 @@ class BotSnapshotTests(unittest.TestCase):
                                   "task": "", "area": "", "status": ""}])
         pid2, _, _ = next_hint(solo, peers)
         self.assertEqual(pid2, "remote:hello")
+
+    def test_color_and_boot_are_deterministic_and_gated(self):
+        import os
+        from unittest.mock import patch
+
+        self.assertEqual(paint("x", "pip", False), "x")
+        self.assertIn("\x1b[36m", paint("x", "pip", True))
+        self.assertEqual(boot_line(2), boot_line(2))
+        self.assertIn("Collab Bot", boot_line(2))
+        self.assertNotIn("\x1b", boot_line(2, tty=False))
+        with patch.dict(os.environ, {"NO_COLOR": "1"}):
+            self.assertFalse(wants_color(True))
+        with patch.dict(os.environ, {"COLLABAI_NO_ANIM": "1"}):
+            self.assertFalse(wants_anim(True))
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertTrue(wants_color(True))
+
+    def test_panel_colors_header_only_on_tty(self):
+        snap = build_snapshot([_rec("claude-code", "auth")])
+        self.assertIn("\x1b[", render_panel(snap, tty=True, now=NOW))
+        self.assertNotIn("\x1b", render_panel(snap, tty=False, now=NOW))
 
     def test_long_task_never_breaks_row_width(self):
         snap = build_snapshot([_rec("claude-code", "auth", task="x" * 200)])

@@ -29,32 +29,23 @@ collabai context --files "auth/login.py"
 Show that `context --files "unrelated/billing.py"` prints nothing (zero added
 tokens) and that a secret `remember` is refused.
 
-## Scenario 2 — live across machines
+## Scenario 2 — Git warning across networks
 
-```bash
-# Dev A (Mac): collabai live host --port 8797   (prints port + token + join line)
-# Dev B (Linux): ssh -L 8797:127.0.0.1:8797 <you>@<mac-host>   (own login, keep running)
-# Dev B: COLLABAI_TOKEN='<paste-token>' collabai live post --port 8797 \
-#          --type task.started --developer "Dev B" --task "Billing reads session user" \
-#          --area auth --status in_progress
-# Dev A: COLLABAI_TOKEN='<paste-token>' collabai live feed --port 8797
-# Either: collabai bot --port 8797
-```
+Dev A commits and pushes from a test repo. Dev B, on a different network,
+runs an explicit `git-fetch`, then `git-check`. Show the warning only when a
+relevant file changed.
 
-Only posted metadata crossed. No code, diffs, prompts, or transcripts.
-Ctrl-C on the host revokes the token instantly and agents keep working.
+## Scenario 3 — Collab Bot and the relay line
 
-## Scenario 3 — Pip sees both sides
+Either developer runs `collabai` and picks Collab Bot (1): local sessions in
+one table, overlaps on top, one suggested next step. Pick Share (5): Collab
+Bot prints one relay line for the last decision. Dev B records it locally
+with Remember. Press `Enter` to refresh, `q` to quit. Collab Bot never posts
+or sends itself.
+(Live Share presence is deferred — see the roadmap note in the README.)
 
-With the tunnel up, `collabai bot --port 8797` shows local sessions and the
-remote developer in one table, overlaps on top, and one suggested next step.
-Press `r` for the manual relay line, `Enter` to refresh, `q` to quit. Pip
-never posts or sends anything itself.
+## Scenario 4 — privacy close
 
-## Scenario 4 — Git warning, then privacy close
-
-Dev A commits and pushes from a test repo. Dev B runs an explicit
-`git-fetch`, then `git-check`. Show the warning only when a relevant file
-changed. Close on privacy: memory stayed in gitignored `.collabai/`, paths
-were shared only after explicit posting, expiry is visible in the feed, and
-disconnecting deleted nothing locally.
+Close on privacy: memory stayed in gitignored `.collabai/`, nothing was
+captured beyond approved notes, and stopping collabai changes nothing for
+either agent.

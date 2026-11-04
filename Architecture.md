@@ -121,7 +121,7 @@ look good and have personality, within stdlib-only terminal output.
 ### Installer (`install.sh`)
 
 Implemented `curl -fsSL` flow: enforce `python3` ≥ 3.11, download the
-versioned release tarball (`wrag20/collabai`, `v<v>`) over HTTPS only,
+versioned release tarball (`wragorg/collabai`, `v<v>`) over HTTPS only,
 verify the detached `.sha256` before extraction (fail closed), extract
 under `~/.local/share/collabai-<v>`, verify `collabai/__main__.py` layout,
 write a `~/.local/bin/collabai` shim, no sudo. Always instruct users to

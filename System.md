@@ -42,14 +42,19 @@ refusal plus path validation, `.collabai/` untracked and gitignored,
 `0700`/`0600` permissions restored, silent `chmod` failures now warn loudly.
 Durable suite: `tests/test_security.py`, 21 stdlib `unittest` tests, all OK.
 
-Repo gaps to close next:
+Repo gaps to close next (v1.0.0 in progress):
 
-- Flip the repo public and prove a clean installer run (`collabai --version`)
-  from `~/.local/bin` without sudo. This is the one deferred proof.
+- Prove a clean installer run (`collabai --version`) from `~/.local/bin`
+  without sudo against the v1.0.0 release. This is the one deferred proof.
 - Exclude agent-prompting files (`System.md`, `Architecture.md`, `Demo.md`,
   `docs/`) from the release tarball before publishing it.
-- `decide` 2-option rejection still needs one pasted proof.
-- New `bot` feature: design with the owner first (see Architecture.md).
+- `decide` 2-option rejection: proven (owner-pasted "give 2-3 alternatives").
+- `bot` v2 (Collab Bot table + orbit beacon + guided hints): built, owner-validated.
+- Retro mini-harness (`collabai` no-args, `collabai/harness.py`): built, owner-validated.
+- Live Share: PARKED on the roadmap (deferred). L1-L4 code stays local and
+  hardened; `live` subcommands print a deferred notice. Revival needs a
+  two-network transport decision (mesh vs public SSH) plus an end-to-end proof.
+- Storefront docs (README + `docs/`): rewritten, pending owner read-through.
 
 ## Module map
 

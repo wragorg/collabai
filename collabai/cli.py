@@ -181,9 +181,14 @@ def cmd_codex_install(args: argparse.Namespace) -> int:
     return _codex.apply(root)
 
 
+def _live_notice() -> None:
+    print("note: Live Share is deferred (roadmap); running anyway.", file=sys.stderr)
+
+
 def cmd_live_host(args: argparse.Namespace) -> int:
     from .live.server import run_host
 
+    _live_notice()
     if args.port != 0 and not 1024 <= args.port <= 65535:
         print("port must be 0 or 1024-65535", file=sys.stderr)
         return 1
@@ -193,6 +198,7 @@ def cmd_live_host(args: argparse.Namespace) -> int:
 def cmd_live_post(args: argparse.Namespace) -> int:
     from .live.client import get_token, post_event
 
+    _live_notice()
     event = {
         "type": args.etype,
         "developer": args.developer,
@@ -210,6 +216,7 @@ def cmd_live_post(args: argparse.Namespace) -> int:
 def cmd_live_feed(args: argparse.Namespace) -> int:
     from .live.client import expires_line, fetch_feed, get_token
 
+    _live_notice()
     code, body = fetch_feed(args.port, get_token(), since=args.since)
     from .live.client import render_feed
 
@@ -307,7 +314,7 @@ def cmd_bot(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="collabai", description="collaborative intelligence, local-first")
     p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
-    sub = p.add_subparsers(dest="cmd", required=True)
+    sub = p.add_subparsers(dest="cmd", required=False)
     pi = sub.add_parser("init", help="initialize project-local private state")
     pi.add_argument("--force", action="store_true", help="reset config to defaults")
     pi.set_defaults(func=cmd_init)
@@ -337,7 +344,7 @@ def build_parser() -> argparse.ArgumentParser:
     px = sub.add_parser("adapter-codex-install", help="preview or install Codex AGENTS.md block")
     px.add_argument("--dry-run", action="store_true", help="show diff without writing")
     px.set_defaults(func=cmd_codex_install)
-    pl = sub.add_parser("live", help="temporary opt-in live collaboration")
+    pl = sub.add_parser("live", help="deferred to the roadmap (still runs)")
     plsub = pl.add_subparsers(dest="live_cmd", required=True)
     ph = plsub.add_parser("host", help="start loopback-only host (prints token once)")
     ph.add_argument("--port", type=int, default=0, help="loopback port (0 = ephemeral)")
@@ -366,7 +373,7 @@ def build_parser() -> argparse.ArgumentParser:
     pd2.add_argument("--files", default="")
     pd2.add_argument("--agent", default="manual")
     pd2.set_defaults(func=cmd_decide)
-    pbot = sub.add_parser("bot", help="foreground companion panel (Pip, metadata only)")
+    pbot = sub.add_parser("bot", help="foreground companion panel (Collab Bot, metadata only)")
     pbot.add_argument("--port", type=int, default=None, help="live host port (optional)")
     pbot.add_argument("--once", action="store_true", help="print panel once and exit")
     pbot.set_defaults(func=cmd_bot)
@@ -376,4 +383,10 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)
+    if getattr(args, "cmd", None) is None:
+        from pathlib import Path as _P
+
+        from .harness import run_harness
+
+        raise SystemExit(run_harness(_P.cwd()))
     raise SystemExit(args.func(args))
