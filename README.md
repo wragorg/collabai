@@ -65,8 +65,7 @@ Git awareness across machines: Dev A pushes as usual. Dev B runs `collabai git-f
 - **Launch (7)** — run `claude`, `codex`, or `muse` from inside the harness and return when it exits. An experimental relay mode surfaces the agent's questions line by line; you type every answer and approval yourself.
 - **AI (8)** — optional Meta AI extras, below.
 - **Git check (9), Doctor (10)** — fetched-change warnings and setup check.
-- **Snake (11)** — one interactive game for compile waits: arrows or `w/a/s/d`, no Enter, `p` pauses, `q` quits. A waiting agent question pauses the game.
-- **Quit (12)** — exit. The menu is numbered in display order, 1 to 12, and a light Collab Bot animation runs at the top of the screen while it waits.
+- **Quit (11)** — exit. The menu is numbered in display order, 1 to 11, and a light Collab Bot animation runs at the top of the screen while it waits.
 
 `collabai watch` is an opt-in, foreground-only watcher that prints new agent questions as they arrive. Ctrl-C stops it; nothing keeps running afterwards.
 

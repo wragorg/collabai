@@ -24,7 +24,6 @@ DEFAULT_CONFIG = {
     "telemetry": {"enabled": False},
     "inference": {"extra_llm": False, "provider": "meta", "model": "meta-spark-1.3"},
     "notifications": {"inbox": True, "watcher": False},
-    "games": {"enabled": True},
 }
 
 

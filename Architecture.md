@@ -135,8 +135,6 @@ animates its beacon in the header line, and picks project files with `@`
   `~/.config/collabai/meta.key` (`0600`, outside any repo; env override).
   Default model `meta-spark-1.3`, named on every use. Metadata-only
   inputs, output never auto-saved. No key: identical v1 behaviour.
-- `collabai/games.py`: Snake for waits (curses, in place); best score in
-  `.collabai/games.json`; a waiting question pauses play.
 
 ### Installer (`install.sh`)
 

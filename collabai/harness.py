@@ -23,8 +23,7 @@ MENU: list[tuple[str, str, str, str]] = [
     ("8", "DO SOMETHING", "Collab Bot AI extras (needs Meta key)", "AI"),
     ("9", "CHECK", "Did upstream change my files?", "Git check"),
     ("10", "CHECK", "Is my setup OK?", "Doctor"),
-    ("11", "PLAY", "Snake while you wait", "Snake"),
-    ("12", "LEAVE", "Leave", "Quit"),
+    ("11", "LEAVE", "Leave", "Quit"),
 ]
 
 LOGO = "C O L L A B A I"
@@ -436,17 +435,6 @@ def _launch_form(root: Path, input_fn) -> None:
     launch_agent(root, names[int(picked) - 1], relay=mode == "r", input_fn=input_fn)
 
 
-def _games_form(root: Path, input_fn) -> None:
-    from .games import load_scores, play_snake, save_score
-    from .notify import list_pending
-
-    pending_fn = lambda: len(list_pending(root))  # noqa: E731
-    best = load_scores(root).get("snake", 0)
-    print(f"Snake: arrows or w/a/s/d, no Enter. p pauses, q quits. Best so far: {best}")
-    score = play_snake(input_fn, pending_fn)
-    print(f"best score now {save_score(root, 'snake', score)}")
-
-
 def _ai_form(root: Path, input_fn) -> None:
     from .bot import build_snapshot
     from .memory import load_records
@@ -538,7 +526,7 @@ def run_harness(root: Path, input_fn=input) -> int:
                 choice = picked if picked is not None else _ask(input_fn, "> ")
             else:
                 choice = _ask(input_fn, "> ")
-            if choice in ("q", "12"):
+            if choice in ("q", "11"):
                 print("Collab Bot: bye for now.")
                 return 0
             if choice == "":
@@ -570,8 +558,6 @@ def run_harness(root: Path, input_fn=input) -> int:
                 from .cli import cmd_doctor
 
                 cmd_doctor(argparse.Namespace())
-            elif choice == "11":
-                _games_form(root, input_fn)
             else:
                 print(f"no such pick: {choice}")
                 tick += 1

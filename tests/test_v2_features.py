@@ -14,7 +14,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from collabai import games, meta_ai, notify
+from collabai import meta_ai, notify
 from collabai.agents import looks_like_question
 from collabai.harness import MENU, _files_prompt, list_project_files, render_top_line
 
@@ -26,7 +26,7 @@ def _scripted(lines):
 
 class MenuOrderTests(unittest.TestCase):
     def test_numbers_sorted_in_display_order(self):
-        self.assertEqual([int(k) for k, *_ in MENU], list(range(1, 13)))
+        self.assertEqual([int(k) for k, *_ in MENU], list(range(1, 12)))
 
     def test_top_line_animates_without_ansi_by_default(self):
         self.assertNotEqual(render_top_line(0), render_top_line(1))
@@ -98,27 +98,6 @@ class InboxTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 notify.ask_question(root, "codex", "password= hunter2 use it?")
             self.assertEqual(notify.list_pending(root), [])
-
-
-class GamesTests(unittest.TestCase):
-    def test_snake_eats_and_scores(self):
-        game = games.SnakeGame(width=5, height=5, seed=1)
-        game.food = (game.snake[0][0] + 1, game.snake[0][1])
-        game.step()
-        self.assertEqual(game.score, 1)
-        self.assertEqual(len(game.snake), 2)
-
-    def test_snake_wall_kills(self):
-        game = games.SnakeGame(width=3, height=3, seed=1)
-        for _ in range(5):
-            game.step()
-        self.assertFalse(game.alive)
-
-    def test_snake_survives_opening_steps_on_wide_board(self):
-        game = games.SnakeGame(width=26, height=14, seed=3)
-        for _ in range(5):
-            game.step()
-        self.assertTrue(game.alive)
 
 
 class MetaKeyTests(unittest.TestCase):

@@ -35,8 +35,6 @@ collabai ask --agent codex --question "Session cookies or local tokens?" --optio
 
 The harness banner shows the waiting question. Dev B picks Inbox (2), chooses `cookies`, and keeps working. The agent reads the answer with `collabai inbox --answer <id>`. Only the question and answer text crossed — no code, diffs, prompts, or transcripts. `collabai watch` does the same notification job in a foreground window.
 
-While waiting, Dev B picks Games (11) for a round of Snake; a new agent question pauses the game.
-
 ## Beat 3 — Git warning, then privacy close
 
 A commits and pushes from a test repo. B runs `collabai git-fetch`, then `git-check` (or menu 9). Show the warning only when a relevant file changed. Close on privacy: private memory stayed in gitignored `.collabai/`, the Meta key (if used) stayed outside the repo, file paths were shared only after explicit posting, and disconnecting deleted nothing locally.

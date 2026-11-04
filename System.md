@@ -58,7 +58,6 @@ owner-proofed — each item needs pasted terminal output before it is done):
 - Optional Meta AI extras (menu 8): key at `~/.config/collabai/meta.key`
   (`0600`, outside any repo), default model `meta-spark-1.3`. The model
   id and endpoint are unverified until an owner-pasted smoke call passes.
-- Snake (menu 11): one curses game; a waiting question pauses play.
 - Docs rewritten for judges; README carries a beta note.
 
 Still open: two-real-developer test and Git-check warning beat are not
@@ -79,7 +78,6 @@ yet proofed. Exclude agent-prompting files (`System.md`,
 - `collabai/notify.py` — `.collabai/inbox/` questions (24h) and foreground `watch`.
 - `collabai/agents.py` — launch claude/codex/muse (hand-over or line relay).
 - `collabai/meta_ai.py` — optional Meta extras; key outside any repo, metadata only.
-- `collabai/games.py` — Snake (curses), best score in `.collabai/games.json`.
 - `install.sh` — `curl -fsSL` installer to `~/.local`, no sudo, optional Meta key at the end.
 - `docs/` — SSH guide, privacy model, short architecture note, short demo sketch.
 
