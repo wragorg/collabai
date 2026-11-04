@@ -28,15 +28,15 @@ collabai --version
 Pin an exact version instead:
 
 ```bash
-curl -fsSL https://github.com/wragorg/collabai/releases/latest/download/install.sh | sh -s -- --version 1.0.0
+curl -fsSL https://github.com/wragorg/collabai/releases/latest/download/install.sh | sh -s -- --version 1.0.1
 ```
 
 Prefer to read before you run? Download first:
 
 ```bash
-curl -fsSL https://github.com/wragorg/collabai/releases/download/v1.0.0/install.sh -o install.sh
+curl -fsSL https://github.com/wragorg/collabai/releases/download/v1.0.1/install.sh -o install.sh
 # inspect install.sh, then:
-sh install.sh --version 1.0.0
+sh install.sh --version 1.0.1
 ```
 
 The installer downloads the release tarball and its `.sha256` over HTTPS, verifies the checksum before extracting (fail-closed), and writes a `~/.local/bin/collabai` shim. Upgrading is the same command with a newer `--version`. Removing is `collabai uninstall --yes` (private state only) plus deleting the shim and version directory.
