@@ -9,7 +9,7 @@ One stdlib-only Python CLI. No backend, no extra inference unless the developer 
 - `collabai/notify.py` — agent question inbox in `.collabai/inbox/`: short, secret-scanned, 24-hour expiry, answered in the harness. `watch` polls it in the foreground.
 - `collabai/agents.py` — launch `claude`/`codex`/`muse` from the harness: terminal hand-over, or an experimental line relay where the developer types every answer and approval. The Meta key is stripped from the child environment.
 - `collabai/meta_ai.py` — optional Meta AI extras. Key at `~/.config/collabai/meta.key` (`0600`, outside any repo), default model `meta-spark-1.3`, metadata-only inputs, nothing auto-saved.
-- `collabai/games.py` — Snake and a typing sprint; best scores in `.collabai/games.json`. A waiting question pauses play.
+- `collabai/games.py` — Snake under curses, in place; best score in `.collabai/games.json`. A waiting question pauses play.
 - `collabai/updater.py` — release download over HTTPS only, `.sha256` verified fail-closed, old install restored on failure.
 - `collabai/adapters/claude.py` — SessionStart hook in `.claude/settings.local.json`.
 - `collabai/adapters/codex.py` — managed block in root `AGENTS.md`, including the `ask`/`inbox` question flow.

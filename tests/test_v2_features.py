@@ -114,11 +114,11 @@ class GamesTests(unittest.TestCase):
             game.step()
         self.assertFalse(game.alive)
 
-    def test_typing_score(self):
-        result = games.score_typing("hello world", "hello world", 6.0)
-        self.assertEqual(result["accuracy"], 1.0)
-        self.assertGreater(result["score"], 0)
-        self.assertEqual(games.score_typing("hello", "xxxxx", 6.0)["accuracy"], 0.0)
+    def test_snake_survives_opening_steps_on_wide_board(self):
+        game = games.SnakeGame(width=26, height=14, seed=3)
+        for _ in range(5):
+            game.step()
+        self.assertTrue(game.alive)
 
 
 class MetaKeyTests(unittest.TestCase):

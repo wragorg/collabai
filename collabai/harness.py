@@ -23,7 +23,7 @@ MENU: list[tuple[str, str, str, str]] = [
     ("8", "DO SOMETHING", "Collab Bot AI extras (needs Meta key)", "AI"),
     ("9", "CHECK", "Did upstream change my files?", "Git check"),
     ("10", "CHECK", "Is my setup OK?", "Doctor"),
-    ("11", "PLAY", "Quick game while you wait", "Games"),
+    ("11", "PLAY", "Snake while you wait", "Snake"),
     ("12", "LEAVE", "Leave", "Quit"),
 ]
 
@@ -437,19 +437,14 @@ def _launch_form(root: Path, input_fn) -> None:
 
 
 def _games_form(root: Path, input_fn) -> None:
-    from .games import load_scores, play_snake, play_typing, save_score
+    from .games import load_scores, play_snake, save_score
     from .notify import list_pending
 
     pending_fn = lambda: len(list_pending(root))  # noqa: E731
-    scores = load_scores(root)
-    print(f"  1  Snake (best {scores.get('snake', 0)})")
-    print(f"  2  Typing sprint (best {scores.get('typing', 0)})")
-    picked = _ask(input_fn, "play which number (blank = back): ")
-    if picked == "1":
-        print(f"best score now {save_score(root, 'snake', play_snake(input_fn, pending_fn))}")
-    elif picked == "2":
-        result = play_typing(input_fn, pending_fn)
-        print(f"best score now {save_score(root, 'typing', result['score'])}")
+    best = load_scores(root).get("snake", 0)
+    print(f"Snake: arrows or w/a/s/d, no Enter. p pauses, q quits. Best so far: {best}")
+    score = play_snake(input_fn, pending_fn)
+    print(f"best score now {save_score(root, 'snake', score)}")
 
 
 def _ai_form(root: Path, input_fn) -> None:

@@ -27,16 +27,16 @@ Show that `context --files "unrelated/billing.py"` prints nothing (zero added to
 
 ## Beat 2 — stay in the harness
 
-Dev B opens `collabai` and picks Launch (10) to run Codex without leaving collabai. The agent needs a decision and leaves a question instead of blocking:
+Dev B opens `collabai` and picks Launch (7) to run Codex without leaving collabai. The agent needs a decision and leaves a question instead of blocking:
 
 ```bash
 collabai ask --agent codex --question "Session cookies or local tokens?" --options "cookies|tokens"
 ```
 
-The harness banner shows the waiting question. Dev B picks Inbox (9), chooses `cookies`, and keeps working. The agent reads the answer with `collabai inbox --answer <id>`. Only the question and answer text crossed — no code, diffs, prompts, or transcripts. `collabai watch` does the same notification job in a foreground window.
+The harness banner shows the waiting question. Dev B picks Inbox (2), chooses `cookies`, and keeps working. The agent reads the answer with `collabai inbox --answer <id>`. Only the question and answer text crossed — no code, diffs, prompts, or transcripts. `collabai watch` does the same notification job in a foreground window.
 
 While waiting, Dev B picks Games (11) for a round of Snake; a new agent question pauses the game.
 
 ## Beat 3 — Git warning, then privacy close
 
-A commits and pushes from a test repo. B runs `collabai git-fetch`, then `git-check` (or menu 6). Show the warning only when a relevant file changed. Close on privacy: private memory stayed in gitignored `.collabai/`, the Meta key (if used) stayed outside the repo, file paths were shared only after explicit posting, and disconnecting deleted nothing locally.
+A commits and pushes from a test repo. B runs `collabai git-fetch`, then `git-check` (or menu 9). Show the warning only when a relevant file changed. Close on privacy: private memory stayed in gitignored `.collabai/`, the Meta key (if used) stayed outside the repo, file paths were shared only after explicit posting, and disconnecting deleted nothing locally.

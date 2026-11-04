@@ -1,9 +1,12 @@
-"""Two tiny waiting games (stdlib only, pure logic + line-based play).
+"""One waiting game: Snake (stdlib only, pure logic + curses layer).
 
-Snake is turn-based (w/a/s/d + Enter per move) so it works in any
-terminal and stays testable. Typing sprint scores one sentence. Best
-scores live in `.collabai/games.json` (`0600`, metadata only). If an
-agent question arrives, the game pauses and hands control back.
+On a real terminal Snake runs in place under curses: it moves on its
+own clock, turns on single keypresses (arrows or w/a/s/d, no Enter),
+speeds up as it eats, and ends on a game-over screen (r restarts,
+q quits). Without a TTY it falls back to line-at-a-time play so
+scripts and tests work. Best score lives in `.collabai/games.json`
+(`0600`, metadata only). If an agent question arrives, the game
+pauses and hands control back.
 """
 
 from __future__ import annotations
@@ -14,14 +17,6 @@ import random
 import sys
 import time
 from pathlib import Path
-
-SENTENCES = [
-    "the quick brown fox jumps over the lazy dog",
-    "ship small changes and talk to your pair often",
-    "decisions are cheap when everyone can find them",
-    "a clean diff tells its own story in review",
-]
-
 
 class SnakeGame:
     def __init__(self, width: int = 12, height: int = 8, seed: int = 0):
@@ -76,15 +71,6 @@ class SnakeGame:
         return "\n".join(rows)
 
 
-def score_typing(target: str, typed: str, seconds: float) -> dict:
-    seconds = max(seconds, 0.01)
-    correct = sum(1 for a, b in zip(target, typed) if a == b)
-    accuracy = correct / max(len(target), 1)
-    wpm = (len(typed) / 5.0) / (seconds / 60.0)
-    return {"wpm": round(wpm, 1), "accuracy": round(accuracy, 2),
-            "score": int(wpm * accuracy)}
-
-
 def load_scores(root: Path) -> dict:
     try:
         obj = json.loads((root / ".collabai" / "games.json").read_text(encoding="utf-8"))
@@ -107,7 +93,108 @@ def save_score(root: Path, game: str, score: int) -> int:
     return best
 
 
-def play_snake(input_fn, pending_fn=None, seed: int | None = None) -> int:
+def _live_terminal(input_fn) -> bool:
+    if input_fn is not input:
+        return False
+    try:
+        import termios  # noqa: F401
+
+        return bool(sys.stdin.isatty())
+    except (ImportError, OSError, AttributeError):
+        return False
+
+
+def _play_snake_curses(game: SnakeGame, pending_fn=None) -> int:
+    """In-place Snake under curses: the stdlib way to do terminal games.
+
+    curses owns the screen and keyboard (arrow keys included), restores
+    the terminal on every exit path, and getch() with a timeout is the
+    game clock — no manual termios, escape parsing, or Enter per move.
+    """
+    import curses
+
+    keys = {
+        curses.KEY_UP: "w", curses.KEY_DOWN: "s",
+        curses.KEY_LEFT: "a", curses.KEY_RIGHT: "d",
+        ord("w"): "w", ord("s"): "s", ord("a"): "a", ord("d"): "d",
+        ord("W"): "w", ord("S"): "s", ord("A"): "a", ord("D"): "d",
+    }
+    result = {"score": 0}
+
+    def _draw(stdscr, headline: str) -> None:
+        stdscr.erase()
+        max_y, max_x = stdscr.getmaxyx()
+        if max_y < game.height + 4 or max_x < game.width + 2:
+            stdscr.addstr(0, 0, "terminal too small for Snake; resize or press q")
+            stdscr.refresh()
+            return
+        stdscr.addstr(0, 0, headline[: max_x - 1])
+        for x in range(game.width + 2):
+            stdscr.addch(1, x, "#")
+            stdscr.addch(game.height + 2, x, "#")
+        for y in range(game.height):
+            stdscr.addch(y + 2, 0, "#")
+            stdscr.addch(y + 2, game.width + 1, "#")
+            for x in range(game.width):
+                cell = (x, y)
+                ch = "@" if cell == game.snake[0] else "o" if cell in game.snake else "*" if cell == game.food else " "
+                if ch != " ":
+                    stdscr.addch(y + 2, x + 1, ch)
+        stdscr.refresh()
+
+    def _main(stdscr) -> None:
+        curses.curs_set(0)
+        stdscr.keypad(True)
+        while True:  # one run per iteration; r restarts from game over
+            run = SnakeGame(width=game.width, height=game.height,
+                            seed=int(time.time()) % 100000)
+            paused = False
+            while run.alive:
+                if pending_fn is not None and pending_fn() > 0:
+                    _draw(stdscr, "PAUSED: an agent needs you. Press any key: menu 2 (Inbox).")
+                    stdscr.timeout(-1)
+                    stdscr.getch()
+                    result["score"] = max(result["score"], run.score)
+                    return
+                stdscr.timeout(max(65, 150 - run.score * 6))
+                _draw(stdscr, f"SNAKE  score {run.score}  length {len(run.snake)}  "
+                              "arrows/wasd steer  p pause  q quit")
+                key = stdscr.getch()
+                if key in (ord("q"), ord("Q")):
+                    result["score"] = max(result["score"], run.score)
+                    return
+                if key in (ord("p"), ord("P")):
+                    _draw(stdscr, "PAUSED. Press p to resume, q to quit.")
+                    stdscr.timeout(-1)
+                    key = stdscr.getch()
+                    while key not in (ord("p"), ord("P"), ord("q"), ord("Q")):
+                        key = stdscr.getch()
+                    if key in (ord("q"), ord("Q")):
+                        result["score"] = max(result["score"], run.score)
+                        return
+                    continue
+                if key in keys:
+                    run.turn(keys[key])
+                run.step()
+            result["score"] = max(result["score"], run.score)
+            _draw(stdscr, f"GAME OVER  score {run.score}.  r = play again, q = back to collabai")
+            stdscr.timeout(-1)
+            key = stdscr.getch()
+            if key not in (ord("r"), ord("R")):
+                return
+
+    curses.wrapper(_main)
+    return int(result["score"])
+
+
+def play_snake(input_fn=input, pending_fn=None, seed: int | None = None) -> int:
+    if _live_terminal(input_fn):
+        board = SnakeGame(width=26, height=14,
+                          seed=seed if seed is not None else int(time.time()) % 10000)
+        try:
+            return _play_snake_curses(board, pending_fn)
+        except Exception as exc:  # curses unavailable/broken: fall back, never crash the harness
+            print(f"interactive Snake unavailable ({exc}); line mode instead.")
     game = SnakeGame(seed=seed if seed is not None else int(time.time()) % 10000)
     print("Snake: w/a/s/d + Enter moves, q quits. Eating * grows you.")
     while game.alive:
@@ -126,21 +213,3 @@ def play_snake(input_fn, pending_fn=None, seed: int | None = None) -> int:
     print(game.render())
     print(f"snake down. score {game.score}")
     return game.score
-
-
-def play_typing(input_fn, pending_fn=None, sentence: str | None = None,
-                clock=None) -> dict:
-    target = sentence or SENTENCES[int(time.time()) % len(SENTENCES)]
-    print("Typing sprint: type this exactly, then Enter:")
-    print(f"  {target}")
-    timer = clock or time.monotonic
-    start = timer()
-    try:
-        typed = str(input_fn("type> "))
-    except (EOFError, KeyboardInterrupt):
-        return {"wpm": 0.0, "accuracy": 0.0, "score": 0}
-    result = score_typing(target, typed, timer() - start)
-    print(f"{result['wpm']} wpm, {int(result['accuracy'] * 100)}% accurate, score {result['score']}")
-    if pending_fn is not None and pending_fn() > 0:
-        print("an agent needs you: check menu 9 (Inbox).")
-    return result

@@ -124,18 +124,18 @@ animates its beacon in the header line, and picks project files with `@`
   directory under `~/.local/share/` (old shim/dir restored on failure).
   `--uninstall` asks separately about shim, version dirs, and state.
 - `collabai/notify.py`: agent questions in `.collabai/inbox/` — short,
-  secret-scanned, `0600`, 24-hour expiry, answered in the harness (menu 9).
+  secret-scanned, `0600`, 24-hour expiry, answered in the harness (menu 2).
   `collabai watch` is an opt-in foreground poller; it is the one piece
   that watches while the harness is not on screen, and stopping it
   leaves nothing running. No silent daemon is ever installed.
-- `collabai/agents.py`: menu 10 launches `claude`/`codex`/`muse` in the
+- `collabai/agents.py`: menu 7 launches `claude`/`codex`/`muse` in the
   harness (terminal hand-over, or an experimental line relay). The
   developer types every answer and command approval; nothing auto-runs.
 - `collabai/meta_ai.py`: optional Meta AI extras behind a key stored at
   `~/.config/collabai/meta.key` (`0600`, outside any repo; env override).
   Default model `meta-spark-1.3`, named on every use. Metadata-only
   inputs, output never auto-saved. No key: identical v1 behaviour.
-- `collabai/games.py`: Snake and typing sprint for waits; scores in
+- `collabai/games.py`: Snake for waits (curses, in place); best score in
   `.collabai/games.json`; a waiting question pauses play.
 
 ### Installer (`install.sh`)

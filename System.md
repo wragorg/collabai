@@ -52,13 +52,13 @@ owner-proofed — each item needs pasted terminal output before it is done):
 - `--update` / `--uninstall` self-service (checksum fail-closed, rollback).
 - Easy Remember: `@` file picker, inferred area, remembered agent, confirm.
 - Harness fits one screen; beacon animates in the header, not the bottom.
-- Agent question inbox (`ask`/`inbox`, menu 9) plus opt-in foreground
-  `watch`; agents launchable from the harness (menu 10, relay is
+- Agent question inbox (`ask`/`inbox`, menu 2) plus opt-in foreground
+  `watch`; agents launchable from the harness (menu 7, relay is
   experimental and line-based).
-- Optional Meta AI extras (menu 12): key at `~/.config/collabai/meta.key`
+- Optional Meta AI extras (menu 8): key at `~/.config/collabai/meta.key`
   (`0600`, outside any repo), default model `meta-spark-1.3`. The model
   id and endpoint are unverified until an owner-pasted smoke call passes.
-- Games (menu 11): Snake + typing sprint; a waiting question pauses play.
+- Snake (menu 11): one curses game; a waiting question pauses play.
 - Docs rewritten for judges; README carries a beta note.
 
 Still open: two-real-developer test and Git-check warning beat are not
@@ -79,7 +79,7 @@ yet proofed. Exclude agent-prompting files (`System.md`,
 - `collabai/notify.py` — `.collabai/inbox/` questions (24h) and foreground `watch`.
 - `collabai/agents.py` — launch claude/codex/muse (hand-over or line relay).
 - `collabai/meta_ai.py` — optional Meta extras; key outside any repo, metadata only.
-- `collabai/games.py` — Snake + typing sprint, scores in `.collabai/games.json`.
+- `collabai/games.py` — Snake (curses), best score in `.collabai/games.json`.
 - `install.sh` — `curl -fsSL` installer to `~/.local`, no sudo, optional Meta key at the end.
 - `docs/` — SSH guide, privacy model, short architecture note, short demo sketch.
 

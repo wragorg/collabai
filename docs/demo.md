@@ -46,9 +46,9 @@ or sends itself.
 
 ## Scenario 4 — an agent asks, the developer stays put
 
-Dev B launches Codex from the harness (menu 10). The agent leaves a short
+Dev B launches Codex from the harness (menu 7). The agent leaves a short
 question with `collabai ask`; the harness banner shows it, Dev B answers in
-Inbox (menu 9), and the agent reads the answer back. A game of Snake
+Inbox (menu 2), and the agent reads the answer back. A game of Snake
 (menu 11) pauses when the question lands.
 
 ## Scenario 5 — privacy close

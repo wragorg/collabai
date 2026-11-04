@@ -59,13 +59,14 @@ Git awareness across machines: Dev A pushes as usual. Dev B runs `collabai git-f
 `collabai` with no arguments opens a one-screen menu:
 
 - **Collab Bot (1)** — who is working on what, overlaps first, one suggested next step.
-- **Remember (2)** — save a note. Type `@` to pick project files instead of typing paths; area and agent are filled in from last time.
-- **Recall (3), Decide (4), Share (5)** — find past decisions, record an approved choice, print one relay line to paste to your pair. collabai never sends anything itself.
-- **Inbox (9)** — an agent that needs you leaves a short question (`collabai ask`); you answer it here without leaving the harness. Questions expire after 24 hours and are shown as untrusted data.
-- **Launch (10)** — run `claude`, `codex`, or `muse` from inside the harness and return when it exits. An experimental relay mode surfaces the agent's questions line by line; you type every answer and approval yourself.
-- **Games (11)** — Snake and a typing sprint for compile waits. A waiting agent question pauses the game.
-- **AI (12)** — optional Meta AI extras, below.
-- **Git check (6), Doctor (7), Quit (8)** — fetched-change warnings, setup check, exit.
+- **Inbox (2)** — an agent that needs you leaves a short question (`collabai ask`); you answer it here without leaving the harness. Questions expire after 24 hours and are shown as untrusted data.
+- **Remember (3)** — save a note. Type `@` to pick project files instead of typing paths; area and agent are filled in from last time.
+- **Recall (4), Decide (5), Share (6)** — find past decisions, record an approved choice, print one relay line to paste to your pair. collabai never sends anything itself.
+- **Launch (7)** — run `claude`, `codex`, or `muse` from inside the harness and return when it exits. An experimental relay mode surfaces the agent's questions line by line; you type every answer and approval yourself.
+- **AI (8)** — optional Meta AI extras, below.
+- **Git check (9), Doctor (10)** — fetched-change warnings and setup check.
+- **Snake (11)** — one interactive game for compile waits: arrows or `w/a/s/d`, no Enter, `p` pauses, `q` quits. A waiting agent question pauses the game.
+- **Quit (12)** — exit. The menu is numbered in display order, 1 to 12, and a light Collab Bot animation runs at the top of the screen while it waits.
 
 `collabai watch` is an opt-in, foreground-only watcher that prints new agent questions as they arrive. Ctrl-C stops it; nothing keeps running afterwards.
 
@@ -73,7 +74,7 @@ Git awareness across machines: Dev A pushes as usual. Dev B runs `collabai git-f
 
 At install, or later with `collabai --meta-key`, you can store a Meta API key. It is kept at `~/.config/collabai/meta.key` (`0600`, outside any repo), can be overridden by `COLLABAI_META_API_KEY`, and removed with `collabai --meta-key-remove`. The default model is `meta-spark-1.3`, and the harness names the model on every use.
 
-With a key, menu 12 offers: draft a note from picked files and a hint, explain an overlap, a standup one-liner, and a fortune cookie. Inputs are collabai metadata only — never file contents, transcripts, or secrets. Output is shown for you to keep or discard; nothing is saved unless you save it.
+With a key, menu 8 offers: draft a note from picked files and a hint, explain an overlap, a standup one-liner, and a fortune cookie. Inputs are collabai metadata only — never file contents, transcripts, or secrets. Output is shown for you to keep or discard; nothing is saved unless you save it.
 
 Without a key, AI extras are off and collabai behaves exactly as the base harness.
 
