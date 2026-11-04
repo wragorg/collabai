@@ -42,19 +42,28 @@ refusal plus path validation, `.collabai/` untracked and gitignored,
 `0700`/`0600` permissions restored, silent `chmod` failures now warn loudly.
 Durable suite: `tests/test_security.py`, 21 stdlib `unittest` tests, all OK.
 
-Repo gaps to close next (v1.0.0 in progress):
+v1.0.1 is published (owner-proven: full suite, clean install with
+checksum, harness save to Share relay to Recall across two machines).
+Live Share stays PARKED; revival needs a two-network transport design.
 
-- Prove a clean installer run (`collabai --version`) from `~/.local/bin`
-  without sudo against the v1.0.0 release. This is the one deferred proof.
-- Exclude agent-prompting files (`System.md`, `Architecture.md`, `Demo.md`,
-  `docs/`) from the release tarball before publishing it.
-- `decide` 2-option rejection: proven (owner-pasted "give 2-3 alternatives").
-- `bot` v2 (Collab Bot table + orbit beacon + guided hints): built, owner-validated.
-- Retro mini-harness (`collabai` no-args, `collabai/harness.py`): built, owner-validated.
-- Live Share: PARKED on the roadmap (deferred). L1-L4 code stays local and
-  hardened; `live` subcommands print a deferred notice. Revival needs a
-  two-network transport decision (mesh vs public SSH) plus an end-to-end proof.
-- Storefront docs (README + `docs/`): rewritten, pending owner read-through.
+v2.0.0 (hackathon branch `Enhancement/version_2`, built, not yet
+owner-proofed — each item needs pasted terminal output before it is done):
+
+- `--update` / `--uninstall` self-service (checksum fail-closed, rollback).
+- Easy Remember: `@` file picker, inferred area, remembered agent, confirm.
+- Harness fits one screen; beacon animates in the header, not the bottom.
+- Agent question inbox (`ask`/`inbox`, menu 9) plus opt-in foreground
+  `watch`; agents launchable from the harness (menu 10, relay is
+  experimental and line-based).
+- Optional Meta AI extras (menu 12): key at `~/.config/collabai/meta.key`
+  (`0600`, outside any repo), default model `meta-spark-1.3`. The model
+  id and endpoint are unverified until an owner-pasted smoke call passes.
+- Games (menu 11): Snake + typing sprint; a waiting question pauses play.
+- Docs rewritten for judges; README carries a beta note.
+
+Still open: two-real-developer test and Git-check warning beat are not
+yet proofed. Exclude agent-prompting files (`System.md`,
+`Architecture.md`, `Demo.md`, `docs/`) from the release tarball.
 
 ## Module map
 
@@ -65,7 +74,13 @@ Repo gaps to close next (v1.0.0 in progress):
 - `collabai/live/server.py` — `State`, `make_token`, `valid_event`, `run_host`.
 - `collabai/live/client.py` — `get_token`, `post_event`, `fetch_feed`.
 - `collabai/git_awareness.py` — explicit fetch plus upstream relevance check.
-- `install.sh` — draft `curl -fsSL` installer to `~/.local`, no sudo.
+- `collabai/harness.py` — no-args menu, `@` picker, inbox/launch/games/AI forms.
+- `collabai/updater.py` — `--update` (verified download, rollback) and `--uninstall`.
+- `collabai/notify.py` — `.collabai/inbox/` questions (24h) and foreground `watch`.
+- `collabai/agents.py` — launch claude/codex/muse (hand-over or line relay).
+- `collabai/meta_ai.py` — optional Meta extras; key outside any repo, metadata only.
+- `collabai/games.py` — Snake + typing sprint, scores in `.collabai/games.json`.
+- `install.sh` — `curl -fsSL` installer to `~/.local`, no sudo, optional Meta key at the end.
 - `docs/` — SSH guide, privacy model, short architecture note, short demo sketch.
 
 ## Non-negotiables

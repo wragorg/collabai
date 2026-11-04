@@ -469,7 +469,7 @@ def run_bot(root: Path, port: int | None = None, once: bool = False,
                 print(f"  run: {cmd}", file=stream)
             if once:
                 return 0
-            tick = _animate_wait(tick, tty)
+            tick += 1  # animation lives in the panel header (top), not a bottom spinner
             answer = input_fn("> [Enter refresh · r relay line · q quit] ").strip().lower()
             if answer == "q":
                 print("Collab Bot: bye for now.", file=stream)

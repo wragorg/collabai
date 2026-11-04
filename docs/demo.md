@@ -44,7 +44,14 @@ with Remember. Press `Enter` to refresh, `q` to quit. Collab Bot never posts
 or sends itself.
 (Live Share presence is deferred — see the roadmap note in the README.)
 
-## Scenario 4 — privacy close
+## Scenario 4 — an agent asks, the developer stays put
+
+Dev B launches Codex from the harness (menu 10). The agent leaves a short
+question with `collabai ask`; the harness banner shows it, Dev B answers in
+Inbox (menu 9), and the agent reads the answer back. A game of Snake
+(menu 11) pauses when the question lands.
+
+## Scenario 5 — privacy close
 
 Close on privacy: memory stayed in gitignored `.collabai/`, nothing was
 captured beyond approved notes, and stopping collabai changes nothing for

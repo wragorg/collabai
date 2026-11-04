@@ -13,6 +13,7 @@ BLOCK = """<!-- collabai:start -->
 - Relevant project knowledge lives in `.collabai/` (gitignored, local-only).
 - To recall: run `python3 -m collabai context --files "<paths>"` and use only returned lines; do not read, print, or paste file contents to enrich them.
 - To save: run `python3 -m collabai remember --task "<short intent>" --area "<area>" --files "<paths>" --text "<summary>" [--decision]`.
+- To ask the developer one short question: run `python3 -m collabai ask --agent codex --question "<short question>" [--options "A|B"]`, then later read it with `python3 -m collabai inbox --answer <id>`. Ask once; do not block waiting.
 - Never paste full transcripts, prompts, secrets, or source contents into memory.
 - Task intent stays private unless saved with `--shareable`.
 <!-- collabai:end -->

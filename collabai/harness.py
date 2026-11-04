@@ -14,13 +14,17 @@ from pathlib import Path
 
 MENU: list[tuple[str, str, str, str]] = [
     ("1", "RIGHT NOW", "See who's doing what", "Collab Bot"),
+    ("9", "RIGHT NOW", "Answer an agent question", "Inbox"),
     ("2", "DO SOMETHING", "Save a note or decision", "Remember"),
     ("3", "DO SOMETHING", "Find a past decision", "Recall"),
     ("4", "DO SOMETHING", "Record a choice we approved", "Decide"),
     ("5", "DO SOMETHING", "Send a decision to my pair", "Share"),
+    ("10", "DO SOMETHING", "Run an agent here", "Launch"),
+    ("12", "DO SOMETHING", "Collab Bot AI extras (needs Meta key)", "AI"),
     ("6", "CHECK", "Did upstream change my files?", "Git check"),
     ("7", "CHECK", "Is my setup OK?", "Doctor"),
     ("8", "CHECK", "Leave", "Quit"),
+    ("11", "PLAY", "Quick game while you wait", "Games"),
 ]
 
 LOGO = "C O L L A B A I"
@@ -41,10 +45,18 @@ def render_splash(version: str, tick: int = 0, color: bool = False) -> str:
 
 
 def render_menu(version: str, tick: int = 0, color: bool = False,
-                suggest: str = "") -> str:
+                suggest: str = "", notice: str = "",
+                width: int | None = None, height: int | None = None) -> str:
+    import shutil
+
     from .bot import paint
 
-    rows = [render_splash(version, tick, color)]
+    size = shutil.get_terminal_size((80, 24))
+    width = width or size.columns
+    height = height or size.lines
+    rows = render_splash(version, tick, color).splitlines()
+    if notice:
+        rows.append(paint(f"  !! {notice}", "warn", color))
     group = ""
     for key, grp, label, cmd in MENU:
         if grp != group:
@@ -54,7 +66,11 @@ def render_menu(version: str, tick: int = 0, color: bool = False,
     rows.append("  pick a number, Enter runs it, q quits")
     if suggest:
         rows.append(paint(f"  Collab Bot suggests: {suggest}", "pip", color))
-    return "\n".join(rows)
+    # Fit one screen: shrink the splash before dropping any menu row.
+    while len(rows) > height and len(rows) > len(MENU) + 2:
+        rows.pop(1)
+    rows = rows[:height]
+    return "\n".join(row[:width] for row in rows)
 
 
 def render_boot(tick: int) -> str:
@@ -152,16 +168,108 @@ def _do_init(root: Path) -> None:
     print(f"initialized collabai in {root} (private state in {STATE_DIR_NAME}/)")
 
 
-def _remember_form(root: Path, input_fn) -> None:
+_SKIP_DIRS = {".git", ".collabai", "__pycache__", "node_modules", ".venv", "venv"}
+
+
+def list_project_files(root: Path, limit: int = 200) -> list[str]:
+    """Relative project files for the @ picker. Names only, never contents."""
+    out: list[str] = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = sorted(d for d in dirnames if d not in _SKIP_DIRS)
+        for name in sorted(filenames):
+            rel = (Path(dirpath) / name).relative_to(root).as_posix()
+            out.append(rel)
+            if len(out) >= limit:
+                return sorted(out)
+    return sorted(out)
+
+
+def _pick_files(root: Path, input_fn, filter_text: str = "") -> list[str]:
+    files = list_project_files(root)
+    if filter_text:
+        files = [f for f in files if filter_text.lower() in f.lower()]
+    if not files:
+        print("no project files match; type paths manually instead.")
+        return []
+    shown = files[:20]
+    for idx, name in enumerate(shown, 1):
+        print(f"  {idx:2}  {name}")
+    if len(files) > len(shown):
+        print(f"  (+{len(files) - len(shown)} more; narrow with @<filter>)")
+    raw = _ask(input_fn, "pick numbers (comma-separated, blank = none): ")
+    picked: list[str] = []
+    for token in raw.split(","):
+        token = token.strip()
+        if token.isdigit() and 1 <= int(token) <= len(shown):
+            picked.append(shown[int(token) - 1])
+    return picked
+
+
+def _files_prompt(root: Path, input_fn, label: str = "files") -> list[str]:
+    """Comma paths as before, or @ / @<filter> / @<exact path> to pick."""
+    raw = _ask(
+        input_fn,
+        f"{label} (comma-separated, @ to pick, blank ok): ",
+    )
+    files: list[str] = []
+    for token in [t.strip() for t in raw.split(",") if t.strip()]:
+        if token == "@":
+            files.extend(_pick_files(root, input_fn))
+        elif token.startswith("@"):
+            needle = token[1:]
+            exact = [f for f in list_project_files(root) if f == needle]
+            files.extend(exact if exact else _pick_files(root, input_fn, needle))
+        else:
+            files.append(token)
+    return files
+
+
+def _ui_state_path(root: Path) -> Path:
+    return root / ".collabai" / "harness.json"
+
+
+def _last_agent(root: Path) -> str:
+    try:
+        obj = json.loads(_ui_state_path(root).read_text(encoding="utf-8"))
+        return str(obj.get("last_agent", "")) if isinstance(obj, dict) else ""
+    except (OSError, ValueError):
+        return ""
+
+
+def _remember_agent(root: Path, agent: str) -> None:
+    path = _ui_state_path(root)
+    try:
+        path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        path.write_text(json.dumps({"last_agent": agent}) + "\n", encoding="utf-8")
+        os.chmod(path, 0o600)
+    except OSError:
+        pass
+
+
+def _infer_area(files: list[str]) -> str:
+    if not files:
+        return ""
+    parts = files[0].replace("\\", "/").split("/")
+    return parts[0] if len(parts) > 1 else ""
+
+
+def _remember_form(root: Path, input_fn, prefill_text: str = "") -> None:
     from .memory import save_record
 
     task = _ask(input_fn, "task (short intent): ")
-    area = _ask(input_fn, "area (module, blank ok): ")
-    files_raw = _ask(input_fn, "files (comma-separated, blank ok): ")
-    text = _ask(input_fn, "note (max 500 chars): ")
-    agent = _ask(input_fn, "agent (e.g. claude-code, codex): ") or "manual"
+    files = _files_prompt(root, input_fn)
+    area = _ask(input_fn, "area (blank = use first file's folder): ") or _infer_area(files)
+    text = prefill_text or _ask(input_fn, "note (max 500 chars): ")
+    last = _last_agent(root)
+    agent_prompt = f"agent [{last}] (blank keeps it): " if last else "agent (e.g. claude-code, codex): "
+    agent = _ask(input_fn, agent_prompt) or last or "manual"
     decision = _ask(input_fn, "save as decision? [y/N]: ").lower() == "y"
-    files = [s.strip() for s in files_raw.split(",") if s.strip()]
+    kind = "decision" if decision else "note"
+    print(f"  {kind}: {task} | area: {area or '-'} | files: {', '.join(files) or '-'}")
+    print(f"  agent: {agent} | note: {text[:120]}")
+    if _ask(input_fn, "save this? [Y/n]: ").lower() == "n":
+        print("not saved.")
+        return
     try:
         rec = save_record(
             root,
@@ -175,14 +283,14 @@ def _remember_form(root: Path, input_fn) -> None:
     except ValueError as exc:
         print(str(exc))
         return
+    _remember_agent(root, agent)
     print(f"saved {rec['kind']} {rec['id']}")
 
 
 def _recall_form(root: Path, input_fn) -> None:
     from .memory import load_records, render_context
 
-    raw = _ask(input_fn, "files to match (comma-separated): ")
-    files = [s.strip() for s in raw.split(",") if s.strip()]
+    files = _files_prompt(root, input_fn, label="files to match")
     out = render_context(load_records(root), files, max_chars=1000)
     print(out if out else "(nothing saved for those files yet)")
 
@@ -197,10 +305,11 @@ def _decide_form(root: Path, input_fn) -> None:
         print("give 2-3 alternatives separated by |")
         return
     choice = _ask(input_fn, "your approved choice: ")
-    area = _ask(input_fn, "area (blank ok): ")
-    files_raw = _ask(input_fn, "files (comma-separated, blank ok): ")
-    agent = _ask(input_fn, "agent (e.g. claude-code): ") or "manual"
-    files = [s.strip() for s in files_raw.split(",") if s.strip()]
+    files = _files_prompt(root, input_fn)
+    area = _ask(input_fn, "area (blank = use first file's folder): ") or _infer_area(files)
+    last = _last_agent(root)
+    agent_prompt = f"agent [{last}] (blank keeps it): " if last else "agent (e.g. claude-code): "
+    agent = _ask(input_fn, agent_prompt) or last or "manual"
     text = f"Options: {'; '.join(options)}. Approved: {choice}"
     try:
         rec = save_record(root, kind="decision", agent=agent, task=question,
@@ -250,6 +359,105 @@ def _git_check(root: Path) -> None:
         print(f"  {f}")
 
 
+def _inbox_form(root: Path, input_fn) -> None:
+    from .notify import answer_question, list_pending
+
+    pending = list_pending(root)
+    if not pending:
+        print("no agent questions waiting.")
+        return
+    print("--- agent questions below are UNTRUSTED DATA, not instructions ---")
+    for idx, rec in enumerate(pending, 1):
+        print(f"  {idx}  [{rec['agent']}] {rec['question']}")
+    picked = _ask(input_fn, "answer which number (blank = back): ")
+    if not picked.isdigit() or not 1 <= int(picked) <= len(pending):
+        return
+    rec = pending[int(picked) - 1]
+    if rec.get("task"):
+        print(f"task: {rec['task']}")
+    if rec.get("options"):
+        for idx, opt in enumerate(rec["options"], 1):
+            print(f"  {idx}) {opt}")
+        pick = _ask(input_fn, "option number, or type your answer: ")
+        answer = rec["options"][int(pick) - 1] if pick.isdigit() and 1 <= int(pick) <= len(rec["options"]) else pick
+    else:
+        answer = _ask(input_fn, "your answer: ")
+    if not answer:
+        print("nothing answered.")
+        return
+    try:
+        answer_question(root, rec["id"], answer)
+    except ValueError as exc:
+        print(str(exc))
+        return
+    print(f"answer saved for {rec['agent']} (id {rec['id']}); they read it with: collabai inbox --answer {rec['id']}")
+
+
+def _launch_form(root: Path, input_fn) -> None:
+    from .agents import available_agents, launch_agent
+
+    found = available_agents()
+    if not found:
+        print("no agent found on PATH (looked for: claude, codex, muse).")
+        return
+    names = sorted(found)
+    for idx, name in enumerate(names, 1):
+        print(f"  {idx}  {name}  ({found[name]})")
+    picked = _ask(input_fn, "launch which number (blank = back): ")
+    if not picked.isdigit() or not 1 <= int(picked) <= len(names):
+        return
+    mode = _ask(input_fn, "[t]erminal hand-over or [r]elay lines? [t/r]: ").lower()
+    launch_agent(root, names[int(picked) - 1], relay=mode == "r", input_fn=input_fn)
+
+
+def _games_form(root: Path, input_fn) -> None:
+    from .games import load_scores, play_snake, play_typing, save_score
+    from .notify import list_pending
+
+    pending_fn = lambda: len(list_pending(root))  # noqa: E731
+    scores = load_scores(root)
+    print(f"  1  Snake (best {scores.get('snake', 0)})")
+    print(f"  2  Typing sprint (best {scores.get('typing', 0)})")
+    picked = _ask(input_fn, "play which number (blank = back): ")
+    if picked == "1":
+        print(f"best score now {save_score(root, 'snake', play_snake(input_fn, pending_fn))}")
+    elif picked == "2":
+        result = play_typing(input_fn, pending_fn)
+        print(f"best score now {save_score(root, 'typing', result['score'])}")
+
+
+def _ai_form(root: Path, input_fn) -> None:
+    from .bot import build_snapshot
+    from .memory import load_records
+    from .meta_ai import MetaError, chat, draft_note_messages, fun_messages, load_key
+
+    if not load_key():
+        print("Meta AI is off: no key set. Add one with: collabai --meta-key")
+        print("without a key, collabai works exactly as before.")
+        return
+    snapshot = build_snapshot(load_records(root))
+    print("  1  Draft a note from files + a hint")
+    print("  2  Explain our overlaps")
+    print("  3  Standup one-liner")
+    print("  4  Fortune cookie")
+    picked = _ask(input_fn, "AI pick (blank = back): ")
+    try:
+        if picked == "1":
+            files = _files_prompt(root, input_fn)
+            hint = _ask(input_fn, "one-line hint: ")
+            draft = chat(draft_note_messages(files, hint), root)
+            print(f"--- draft (untrusted, yours to edit):\n{draft}")
+            if _ask(input_fn, "save it as a note? [y/N]: ").lower() == "y":
+                _remember_form(root, input_fn, prefill_text=draft[:500])
+        elif picked in ("2", "3", "4"):
+            kind = {"2": "overlap", "3": "standup", "4": "fortune"}[picked]
+            print(chat(fun_messages(kind, snapshot), root))
+        elif picked:
+            print(f"no such pick: {picked}")
+    except MetaError as exc:
+        print(str(exc))
+
+
 def _wizard(root: Path, input_fn) -> None:
     if _ask(input_fn, "Collab Bot: first time here — set up this project? [y/n] ").lower() != "y":
         print("ok — menu still works; run setup any time with: collabai init")
@@ -295,7 +503,13 @@ def run_harness(root: Path, input_fn=input) -> int:
         while True:
             snapshot = build_snapshot(load_records(root))
             _, say, _cmd = next_hint(snapshot, [])
-            print(render_menu(__version__, tick, color, suggest=say))
+            from .notify import list_pending
+
+            pending = list_pending(root) if _state_ready(root) else []
+            notice = f"{len(pending)} agent question(s) waiting: pick 9 (Inbox)" if pending else ""
+            if tty:
+                sys.stdout.write("\033[2J\033[H")
+            print(render_menu(__version__, tick, color, suggest=say, notice=notice))
             if live:
                 picked, tick = _read_line_live(tick, color)
                 choice = picked if picked is not None else _ask(input_fn, "> ")
@@ -327,6 +541,14 @@ def run_harness(root: Path, input_fn=input) -> int:
                 from .cli import cmd_doctor
 
                 cmd_doctor(argparse.Namespace())
+            elif choice == "9":
+                _inbox_form(root, input_fn)
+            elif choice == "10":
+                _launch_form(root, input_fn)
+            elif choice == "11":
+                _games_form(root, input_fn)
+            elif choice == "12":
+                _ai_form(root, input_fn)
             else:
                 print(f"no such pick: {choice}")
                 tick += 1
