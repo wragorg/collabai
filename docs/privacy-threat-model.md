@@ -1,7 +1,21 @@
-# Privacy and threat model (v1.0.0)
+# Privacy and threat model (v2.0.0)
 
 Defaults: transcripts never captured, memory local-only, Live Share off,
 fetch opt-in off, telemetry off, no extra inference.
+
+v2 additions, same rules:
+
+- Agent questions (`ask`/`inbox`) are short, secret-scanned, stored
+  `0600` in `.collabai/inbox/`, expire after 24 hours, and display as
+  untrusted data. `watch` is foreground-only and opt-in; stopping it
+  leaves nothing running.
+- The Meta key (optional) is stored only at `~/.config/collabai/meta.key`
+  (`0600`, outside any repo), never logged, and stripped from launched
+  agents' environments. AI extras send collabai metadata only (task names,
+  areas, file names, decisions) — never file contents or transcripts —
+  and save nothing unless the developer saves the output.
+- Self-update downloads release tarballs over HTTPS only and verifies
+  `.sha256` fail-closed before extracting, like the installer.
 
 What is stored where:
 

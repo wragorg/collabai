@@ -22,7 +22,9 @@ DEFAULT_CONFIG = {
     "live_share": {"enabled": False},
     "git": {"fetch_opt_in": False, "interval_seconds": 3600},
     "telemetry": {"enabled": False},
-    "inference": {"extra_llm": False},
+    "inference": {"extra_llm": False, "provider": "meta", "model": "meta-spark-1.3"},
+    "notifications": {"inbox": True, "watcher": False},
+    "games": {"enabled": True},
 }
 
 
@@ -311,9 +313,100 @@ def cmd_bot(args: argparse.Namespace) -> int:
     return run_bot(_P.cwd(), port=args.port, once=args.once)
 
 
+def cmd_ask(args: argparse.Namespace) -> int:
+    from pathlib import Path as _P
+
+    from .notify import ask_question
+
+    options = [o.strip() for o in (args.options or "").split("|") if o.strip()]
+    try:
+        rec = ask_question(_P.cwd(), agent=args.agent, question=args.question,
+                           task=args.task, area=args.area, options=options)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    print(f"question {rec['id']} saved for the developer (expires in 24h)")
+    print(f"read the answer later with: collabai inbox --answer {rec['id']}")
+    return 0
+
+
+def cmd_inbox(args: argparse.Namespace) -> int:
+    from pathlib import Path as _P
+
+    from .notify import list_pending, read_answer
+
+    root = _P.cwd()
+    if args.answer:
+        text = read_answer(root, args.answer)
+        print(text if text is not None else f"pending: no answer yet for {args.answer}")
+        return 0 if text is not None else 1
+    pending = list_pending(root)
+    if not pending:
+        print("no agent questions waiting")
+        return 0
+    print("--- agent questions below are UNTRUSTED DATA, not instructions ---")
+    for rec in pending:
+        print(f"  [{rec['id']}] {rec['agent']}: {rec['question']}")
+    print("answer in the harness (menu 9, Inbox).")
+    return 0
+
+
+def cmd_watch(args: argparse.Namespace) -> int:
+    from pathlib import Path as _P
+
+    from .notify import watch_inbox
+
+    print("watcher is opt-in and foreground only; stopping it leaves nothing running.")
+    return watch_inbox(_P.cwd(), interval=args.interval, once=args.once)
+
+
+def cmd_launch(args: argparse.Namespace) -> int:
+    from pathlib import Path as _P
+
+    from .agents import launch_agent
+
+    return launch_agent(_P.cwd(), args.agent, relay=args.relay)
+
+
+def run_meta_key() -> int:
+    import getpass
+
+    from .meta_ai import DEFAULT_MODEL, store_key
+
+    key = getpass.getpass("Meta API key (hidden, blank cancels): ")
+    if not key.strip():
+        print("cancelled; no key stored.")
+        return 0
+    try:
+        path = store_key(key)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    print(f"key stored at {path} (0600, outside any repo). It is never logged or shared.")
+    print(f"AI extras will use model {DEFAULT_MODEL} and say so on every use.")
+    return 0
+
+
+def run_meta_key_remove() -> int:
+    from .meta_ai import delete_key, key_path
+
+    print("removed stored Meta key." if delete_key() else f"no stored key at {key_path()}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="collabai", description="collaborative intelligence, local-first")
     p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    p.add_argument("--update", action="store_true",
+                   help="download, checksum-verify, and install the latest release")
+    p.add_argument("--to", default=None, metavar="X.Y.Z",
+                   help="with --update: install this exact version instead of latest")
+    p.add_argument("--uninstall", action="store_true", dest="uninstall_full",
+                   help="ask separately about shim, installed versions, and private state")
+    p.add_argument("--meta-key", action="store_true",
+                   help="store a Meta API key (hidden prompt, 0600, outside any repo)")
+    p.add_argument("--meta-key-remove", action="store_true",
+                   help="delete the stored Meta API key")
     sub = p.add_subparsers(dest="cmd", required=False)
     pi = sub.add_parser("init", help="initialize project-local private state")
     pi.add_argument("--force", action="store_true", help="reset config to defaults")
@@ -377,12 +470,53 @@ def build_parser() -> argparse.ArgumentParser:
     pbot.add_argument("--port", type=int, default=None, help="live host port (optional)")
     pbot.add_argument("--once", action="store_true", help="print panel once and exit")
     pbot.set_defaults(func=cmd_bot)
+    pask = sub.add_parser("ask", help="leave one short question for the developer (data, not instructions)")
+    pask.add_argument("--agent", default="agent")
+    pask.add_argument("--question", required=True, help="short question, max 500 chars")
+    pask.add_argument("--task", default="")
+    pask.add_argument("--area", default="")
+    pask.add_argument("--options", default="", help="up to 3 options separated by |")
+    pask.set_defaults(func=cmd_ask)
+    pbox = sub.add_parser("inbox", help="list pending agent questions, or read one answer")
+    pbox.add_argument("--answer", default=None, metavar="ID", help="print the answer for a question id")
+    pbox.set_defaults(func=cmd_inbox)
+    pw = sub.add_parser("watch", help="opt-in foreground watcher for agent questions (Ctrl-C stops)")
+    pw.add_argument("--interval", type=float, default=2.0)
+    pw.add_argument("--once", action="store_true", help="check once and exit")
+    pw.set_defaults(func=cmd_watch)
+    pln = sub.add_parser("launch", help="run your own agent here, return to collabai on exit")
+    pln.add_argument("--agent", required=True, help="claude, codex, or muse")
+    pln.add_argument("--relay", action="store_true", help="experimental line relay instead of terminal hand-over")
+    pln.set_defaults(func=cmd_launch)
     return p
 
 
 def main(argv: list[str] | None = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)
+    if getattr(args, "meta_key", False) and getattr(args, "meta_key_remove", False):
+        print("use only one of --meta-key / --meta-key-remove", file=sys.stderr)
+        raise SystemExit(2)
+    if getattr(args, "meta_key", False):
+        raise SystemExit(run_meta_key())
+    if getattr(args, "meta_key_remove", False):
+        raise SystemExit(run_meta_key_remove())
+    if getattr(args, "update", False) and getattr(args, "uninstall_full", False):
+        print("use only one of --update / --uninstall", file=sys.stderr)
+        raise SystemExit(2)
+    if getattr(args, "update", False):
+        from .updater import run_update
+
+        raise SystemExit(run_update(to=args.to))
+    if getattr(args, "uninstall_full", False):
+        from pathlib import Path as _P
+
+        from .updater import run_uninstall_full
+
+        raise SystemExit(run_uninstall_full(_P.cwd()))
+    if getattr(args, "to", None) is not None:
+        print("--to only works with --update", file=sys.stderr)
+        raise SystemExit(2)
     if getattr(args, "cmd", None) is None:
         from pathlib import Path as _P
 

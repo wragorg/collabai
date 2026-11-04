@@ -100,8 +100,8 @@ class HarnessFlowTests(unittest.TestCase):
             root = Path(tmp)
             _preset_config(root)
             out = _run(root, [
-                "2", "Auth redesign", "auth", "auth/login.py",
-                "Use session cookies", "claude-code", "y", "",
+                "2", "Auth redesign", "auth/login.py", "auth",
+                "Use session cookies", "claude-code", "y", "", "",
                 "5", "", "8",
             ])
             self.assertIn("[collabai]", out)

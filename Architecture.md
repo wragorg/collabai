@@ -107,16 +107,36 @@ Thin wrapper: `--question`, `--options "A|B"` (2–3, split on `|`), `--choice`
 `Options: ... Approved: ...`. Agents surface alternatives; only the explicit
 choice is persisted.
 
-### Planned: `bot` (not yet designed)
+### Bot and harness (built)
 
-A terminal companion that helps the developer juggle several agent
-sessions (Claude Code, Codex, later OpenCode) at a glance. Design with the
-owner before building; it must stay inside the invariants: foreground,
-on-demand, and interactive only while the command runs — no permanent
-daemon, no background process, no extra inference. It may only track
-structured metadata (sessions, agents, tasks, decisions, live events);
-never transcripts, diffs, prompts, or secrets. Fun is a feature: it should
-look good and have personality, within stdlib-only terminal output.
+Collab Bot (`collabai/bot.py`) and the no-args harness
+(`collabai/harness.py`) stay inside the invariants: foreground, on-demand,
+interactive only while the command runs. They track structured metadata
+only (sessions, agents, tasks, decisions, live events); never
+transcripts, diffs, prompts, or secrets. The harness renders one screen,
+animates its beacon in the header line, and picks project files with `@`
+(file names only, contents never read).
+
+### v2 additions (hackathon branch, owner-approved architecture change)
+
+- `collabai/updater.py`: `--update` downloads a release tarball and its
+  `.sha256` over HTTPS only, verifies fail-closed, and swaps the version
+  directory under `~/.local/share/` (old shim/dir restored on failure).
+  `--uninstall` asks separately about shim, version dirs, and state.
+- `collabai/notify.py`: agent questions in `.collabai/inbox/` — short,
+  secret-scanned, `0600`, 24-hour expiry, answered in the harness (menu 9).
+  `collabai watch` is an opt-in foreground poller; it is the one piece
+  that watches while the harness is not on screen, and stopping it
+  leaves nothing running. No silent daemon is ever installed.
+- `collabai/agents.py`: menu 10 launches `claude`/`codex`/`muse` in the
+  harness (terminal hand-over, or an experimental line relay). The
+  developer types every answer and command approval; nothing auto-runs.
+- `collabai/meta_ai.py`: optional Meta AI extras behind a key stored at
+  `~/.config/collabai/meta.key` (`0600`, outside any repo; env override).
+  Default model `meta-spark-1.3`, named on every use. Metadata-only
+  inputs, output never auto-saved. No key: identical v1 behaviour.
+- `collabai/games.py`: Snake and typing sprint for waits; scores in
+  `.collabai/games.json`; a waiting question pauses play.
 
 ### Installer (`install.sh`)
 
@@ -125,8 +145,11 @@ versioned release tarball (`wragorg/collabai`, `v<v>`) over HTTPS only,
 verify the detached `.sha256` before extraction (fail closed), extract
 under `~/.local/share/collabai-<v>`, verify `collabai/__main__.py` layout,
 write a `~/.local/bin/collabai` shim, no sudo. Always instruct users to
-download-then-inspect rather than blind-piping. Clean-install proof is
-pending the first public release.
+download-then-inspect rather than blind-piping. Clean install of v1.0.1
+was owner-proven; the v2.0.0 clean install and self-update still need an
+owner-pasted proof against a published release. At the end of install,
+the script offers `collabai --meta-key` (hidden prompt, blank skips;
+model `meta-spark-1.3`).
 
 ## Repo shape and extension points
 
@@ -141,6 +164,8 @@ reuses the adapter contract: `install` (diff + approval), `on_session_start`
 This project verifies manually: the implementing agent writes exact terminal
 steps; the owner runs them and pastes output; only then is behaviour done.
 Re-run history: skeleton, memory, both adapters, recall, live happy path,
-and both Git cases passed. `decide` and the installer still need pasted
-proof. Before tagging: secret-scan the repo, check `.collabai/` permissions,
+both Git cases, `decide`, and the v1.0.1 clean install passed (owner-pasted).
+v2 additions (updater, `@` picker, inbox/watch, launch, Meta extras, games)
+are covered by unit tests and still need owner-pasted terminal proof.
+Before tagging: secret-scan the repo, check `.collabai/` permissions,
 fuzz `/events`, confirm token expiry, and clean-uninstall in a scratch dir.
