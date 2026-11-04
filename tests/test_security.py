@@ -12,7 +12,7 @@ from http.server import ThreadingHTTPServer
 from pathlib import Path
 
 from collabai.live import server as live_server
-from collabai.live.client import render_feed
+from collabai.live.client import expires_line, render_feed
 from collabai.memory import save_record
 
 
@@ -86,6 +86,14 @@ class RenderFeedTests(unittest.TestCase):
     def test_empty_events(self):
         self.assertEqual(render_feed('{"events": []}'), "(no remote events)")
 
+    def test_lead_summarizes_presence(self):
+        body = json.dumps({"events": [{"seq": 1, "at": "t", "type": "developer.joined",
+                                        "developer": "Dev B", "task": "",
+                                        "area": "auth", "status": ""}]})
+        out = render_feed(body)
+        self.assertIn("Dev B joined [auth]", out)
+        self.assertIn("UNTRUSTED DATA", out)
+
     def test_non_feed_body_passes_through(self):
         self.assertEqual(render_feed('{"error": "nope"}'), '{"error": "nope"}')
         self.assertEqual(render_feed("not json"), "not json")
@@ -150,6 +158,29 @@ class LiveServerTests(unittest.TestCase):
     def test_banned_field_rejected(self):
         code, _ = self._post(json.dumps({"type": "task.started", "diff": "x"}).encode())
         self.assertEqual(code, 400)
+
+    def test_unknown_field_rejected(self):
+        code, body = self._post(json.dumps({"type": "task.started",
+                                            "extra": "x"}).encode())
+        self.assertEqual(code, 400)
+        self.assertIn("unknown field", body)
+
+    def test_secret_shaped_value_rejected(self):
+        code, _ = self._post(json.dumps({"type": "task.started",
+                                         "task": "rotate ghp_abc123XYZ!"}).encode())
+        self.assertEqual(code, 400)
+        code, _ = self._post(json.dumps({"type": "task.started",
+                                         "task": "note\x01here"}).encode())
+        self.assertEqual(code, 400)
+
+    def test_health_and_feed_report_expiry(self):
+        code, body = self._get("/health")
+        self.assertEqual(code, 200)
+        self.assertIn("expires_in", body)
+        code, body = self._get("/feed?since=0")
+        self.assertEqual(code, 200)
+        self.assertIn("expires_in", body)
+        self.assertIsNotNone(expires_line(body))
 
     def test_oversize_body_rejected(self):
         code, _ = self._post(b"x" * (live_server.MAX_BODY + 1))

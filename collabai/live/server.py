@@ -18,6 +18,43 @@ ALLOWED_TYPES = {
     "decision.shared",
 }
 
+ALLOWED_FIELDS = {"type", "developer", "task", "area", "status"}
+
+_SECRET_RES = (
+    "-----BEGIN ",
+    "AKIA",
+    "sk-live-",
+    "sk-test-",
+    "xoxb-",
+    "xoxp-",
+    "xoxa-",
+    "xoxr-",
+    "xoxs-",
+    "ghp_",
+    "gho_",
+    "ghu_",
+    "ghs_",
+    "ghr_",
+    "github_pat_",
+    "bearer ",
+    "password=",
+    "password:",
+    "api_key",
+    "api_secret",
+    "access_token",
+    "auth_token",
+    "secret_key",
+)
+
+
+def _looks_secret(value: str) -> bool:
+    low = value.lower()
+    if "-----begin " in low and "private key" in low:
+        return True
+    if low.startswith("eyj") and low.count(".") >= 2:
+        return True
+    return any(marker in value or marker in low for marker in _SECRET_RES)
+
 MAX_BODY = 4096
 MAX_EVENTS = 100
 SESSION_SECONDS = 15 * 60
@@ -42,6 +79,12 @@ def _rate_limited(state: State, ip: str) -> bool:
 def valid_event(obj: object) -> tuple[bool, str]:
     if not isinstance(obj, dict):
         return False, "event must be an object"
+    for banned in ("code", "diff", "transcript", "prompt", "secret", "token"):
+        if banned in obj:
+            return False, f"banned field: {banned}"
+    for key in obj:
+        if key not in ALLOWED_FIELDS:
+            return False, f"unknown field: {key}"
     if obj.get("type") not in ALLOWED_TYPES:
         return False, "unknown type"
     for key in ("developer", "task", "area", "status"):
@@ -52,9 +95,10 @@ def valid_event(obj: object) -> tuple[bool, str]:
             return False, f"{key} must be a string"
         if len(val) > 200:
             return False, f"{key} too long"
-    for banned in ("code", "diff", "transcript", "prompt", "secret", "token"):
-        if banned in obj:
-            return False, f"banned field: {banned}"
+        if any(ord(ch) < 32 or ord(ch) == 127 for ch in val):
+            return False, f"{key} has control characters"
+        if _looks_secret(val):
+            return False, f"{key} looks like a secret"
     return True, ""
 
 
@@ -68,6 +112,9 @@ class State:
 
     def expired(self) -> bool:
         return time.time() > self.expires_at
+
+    def seconds_left(self) -> int:
+        return max(0, int(self.expires_at - time.time()))
 
     def add(self, event: dict) -> dict:
         self.seq += 1
@@ -121,7 +168,8 @@ def make_handler(state: State):
             if not self._require_auth():
                 return
             if self.path == "/health":
-                _send(self, 200, {"ok": True, "events": len(state.events)})
+                _send(self, 200, {"ok": True, "events": len(state.events),
+                                  "expires_in": state.seconds_left()})
                 return
             if self.path.startswith("/feed"):
                 since = 0
@@ -131,7 +179,7 @@ def make_handler(state: State):
                     except ValueError:
                         since = 0
                 items = [e for e in state.events if e.get("seq", 0) > since]
-                _send(self, 200, {"events": items})
+                _send(self, 200, {"events": items, "expires_in": state.seconds_left()})
                 return
             _send(self, 404, {"error": "not found"})
 
@@ -169,8 +217,14 @@ def run_host(port: int = 0) -> int:
     print("live share active on 127.0.0.1 only. will expire in 15 minutes.")
     print(f"port: {actual}")
     print(f"token: {state.token}")
+    expiry = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(state.expires_at))
+    print(f"expires at (UTC): {expiry}")
     print("Share these ONLY with the invited developer over a trusted channel.")
-    print("To connect remotely, that developer creates their own SSH tunnel.")
+    print("Joiner command (run on THEIR machine, their own SSH login):")
+    print(f"  ssh -L {actual}:127.0.0.1:{actual} <you>@<this-host>")
+    print("Then on their machine (token via env or hidden prompt, never a flag):")
+    print(f"  COLLABAI_TOKEN='<paste-token>' python3 -m collabai live feed --port {actual}")
+    print(f"  COLLABAI_TOKEN='<paste-token>' python3 -m collabai bot --port {actual}")
     print("Press Ctrl-C to stop sharing immediately.")
     try:
         server.serve_forever()

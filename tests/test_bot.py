@@ -5,7 +5,16 @@ from __future__ import annotations
 import unittest
 from datetime import datetime, timedelta, timezone
 
-from collabai.bot import build_snapshot, burst, mood_for, render_panel, spin_frame
+from collabai.bot import (
+    build_peer_rows,
+    build_snapshot,
+    burst,
+    mood_for,
+    next_hint,
+    orbit_beacon,
+    render_panel,
+    spin_frame,
+)
 
 NOW = datetime(2026, 11, 3, 12, 0, tzinfo=timezone.utc)
 
@@ -60,6 +69,55 @@ class BotSnapshotTests(unittest.TestCase):
         panel = render_panel(snap, tty=False, tick=1, now=NOW)
         self.assertNotIn("\033", panel)
         self.assertTrue(spin_frame(0, tty=False))
+
+    def test_peer_rows_collapse_to_latest_per_developer(self):
+        events = [
+            {"seq": 1, "at": "2026-11-03T11:00:00Z", "type": "task.started",
+             "developer": "Dev B", "task": "old", "area": "auth", "status": "in_progress"},
+            {"seq": 2, "at": "2026-11-03T11:30:00Z", "type": "task.completed",
+             "developer": "Dev B", "task": "new", "area": "auth", "status": "done"},
+        ]
+        peers = build_peer_rows(events)
+        self.assertEqual(len(peers), 1)
+        self.assertEqual(peers[0]["task"], "new")
+        self.assertEqual(peers[0]["state"], "done")
+
+    def test_panel_lists_local_and_remote_rows(self):
+        snap = build_snapshot([_rec("claude-code", "auth")])
+        events = [{"seq": 1, "at": "2026-11-03T11:30:00Z", "type": "task.started",
+                   "developer": "Dev B", "task": "billing", "area": "auth",
+                   "status": "in_progress"}]
+        panel = render_panel(snap, events, tty=False, now=NOW)
+        self.assertIn("L claude-code", panel)
+        self.assertIn("R Dev B", panel)
+        self.assertIn("1 local", panel)
+
+    def test_orbit_beacon_shows_one_dot_per_session(self):
+        ascii_two = orbit_beacon(2, 0, "clear", tty=False)
+        ascii_five = orbit_beacon(5, 0, "clear", tty=False)
+        self.assertEqual(ascii_two.count("o"), 1 + 2)
+        self.assertEqual(ascii_five.count("o"), 1 + 5)
+        self.assertNotEqual(
+            orbit_beacon(2, 0, "clear", tty=False),
+            orbit_beacon(2, 3, "clear", tty=False),
+        )
+
+    def test_next_hint_prioritizes_overlap_then_remote(self):
+        overlap = build_snapshot([_rec("claude-code", "auth"), _rec("codex", "auth")])
+        pid, say, cmd = next_hint(overlap, [])
+        self.assertTrue(pid.startswith("overlap:"))
+        self.assertIn("auth", cmd)
+        solo = build_snapshot([_rec("claude-code", "billing")])
+        peers = build_peer_rows([{"seq": 1, "at": "2026-11-03T11:30:00Z",
+                                  "type": "developer.joined", "developer": "Dev B",
+                                  "task": "", "area": "", "status": ""}])
+        pid2, _, _ = next_hint(solo, peers)
+        self.assertEqual(pid2, "remote:hello")
+
+    def test_long_task_never_breaks_row_width(self):
+        snap = build_snapshot([_rec("claude-code", "auth", task="x" * 200)])
+        for line in render_panel(snap, tty=False, now=NOW).splitlines():
+            self.assertLessEqual(len(line), 100)
 
 
 if __name__ == "__main__":

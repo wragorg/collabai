@@ -202,16 +202,22 @@ def cmd_live_post(args: argparse.Namespace) -> int:
     }
     code, body = post_event(args.port, get_token(), event)
     print(body)
+    if code == 0:
+        print("tunnel down? is your `ssh -L <port>:127.0.0.1:<port>` still running?")
     return 0 if code == 200 else 1
 
 
 def cmd_live_feed(args: argparse.Namespace) -> int:
-    from .live.client import fetch_feed, get_token
+    from .live.client import expires_line, fetch_feed, get_token
 
     code, body = fetch_feed(args.port, get_token(), since=args.since)
     from .live.client import render_feed
 
     print(render_feed(body))
+    if code == 200:
+        hint = expires_line(body)
+        if hint:
+            print(hint)
     return 0 if code == 200 else 1
 
 
@@ -282,6 +288,11 @@ def cmd_decide(args: argparse.Namespace) -> int:
         print(str(exc), file=sys.stderr)
         return 1
     print(f"saved decision {rec['id']}: {args.choice}")
+    area = (args.area or "").strip()[:200]
+    question = (args.question or "").strip()[:200]
+    print("to share by hand (nothing is sent automatically):")
+    print(f"  python3 -m collabai live post --port <port> --type decision.shared "
+          f"--task {question} --area {area} --status approved")
     return 0
 
 
