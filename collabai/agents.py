@@ -118,9 +118,22 @@ def _launch_relay(root: Path, argv: list[str], input_fn) -> int:
                 break
             if reply.strip() == "/quit":
                 break
-            proc.stdin.write(reply + "\n")
-            proc.stdin.flush()
+            if proc.poll() is not None:
+                break
+            try:
+                proc.stdin.write(reply + "\n")
+                proc.stdin.flush()
+            except (BrokenPipeError, OSError):
+                # Agent exited while we were typing (relay pipes are not a
+                # TTY, so some agents quit at once). Report, don't crash.
+                print("agent ended before it could take that line.")
+                break
     finally:
+        try:
+            if proc.stdin is not None:
+                proc.stdin.close()
+        except (BrokenPipeError, OSError):
+            pass
         if proc.poll() is None:
             proc.terminate()
             try:

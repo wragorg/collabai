@@ -155,6 +155,19 @@ class MetaKeyTests(unittest.TestCase):
 
 
 class AgentRelayTests(unittest.TestCase):
+    def test_relay_survives_agent_exiting_immediately(self):
+        import sys as _sys
+
+        from collabai import agents
+
+        with patch.dict(agents.AGENTS, {"claude": [_sys.executable, "-c", "pass"]}), \
+                patch.object(agents.shutil, "which", lambda _exe: "/fake/claude"):
+            code = agents.launch_agent(
+                Path(tempfile.gettempdir()), "claude", relay=True,
+                input_fn=lambda _prompt="": "create a fake report.md file here",
+            )
+        self.assertEqual(code, 0)
+
     def test_question_detection(self):
         self.assertTrue(looks_like_question("Allow this command? [y/N]"))
         self.assertTrue(looks_like_question("Which file should I edit?"))

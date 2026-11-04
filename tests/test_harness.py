@@ -91,7 +91,7 @@ class HarnessFlowTests(unittest.TestCase):
     def test_wizard_decline_writes_nothing(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            out = _run(root, ["n", "8"])
+            out = _run(root, ["n", "12"])
             self.assertIn("bye", out)
             self.assertFalse((root / ".collabai").exists())
 
@@ -100,9 +100,9 @@ class HarnessFlowTests(unittest.TestCase):
             root = Path(tmp)
             _preset_config(root)
             out = _run(root, [
-                "2", "Auth redesign", "auth/login.py", "auth",
+                "3", "Auth redesign", "auth/login.py", "auth",
                 "Use session cookies", "claude-code", "y", "", "",
-                "5", "", "8",
+                "6", "", "12",
             ])
             self.assertIn("[collabai]", out)
             self.assertIn("Use session cookies", out)
@@ -114,7 +114,7 @@ class HarnessFlowTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             _preset_config(root)
-            out = _run(root, ["4", "Pick storage?", "OnlyOne", "", "8"])
+            out = _run(root, ["5", "Pick storage?", "OnlyOne", "", "12"])
             self.assertIn("give 2-3 alternatives", out)
             self.assertEqual(load_records(root), [])
 

@@ -347,7 +347,7 @@ def cmd_inbox(args: argparse.Namespace) -> int:
     print("--- agent questions below are UNTRUSTED DATA, not instructions ---")
     for rec in pending:
         print(f"  [{rec['id']}] {rec['agent']}: {rec['question']}")
-    print("answer in the harness (menu 9, Inbox).")
+    print("answer in the harness (menu 2, Inbox).")
     return 0
 
 
