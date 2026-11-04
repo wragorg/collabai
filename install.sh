@@ -67,21 +67,26 @@ echo "downloading ${URL}.sha256"
 curl --proto '=https' --tlsv1.2 -fsSL "${URL}.sha256" -o "${TMP}/collabai.tar.gz.sha256"
 
 echo "verifying checksum"
+# Compare hashes directly: the .sha256 names the release file
+# (collabai-<v>.tar.gz), not our temp name, so `sha256sum -c` would miss it.
+WANT="$(awk '{print $1}' "${TMP}/collabai.tar.gz.sha256" | tr 'A-F' 'a-f')"
+case "${WANT}" in
+  *[!0-9a-f]*|"") echo "checksum file has no sha256 digest" >&2; exit 1 ;;
+esac
+[ "${#WANT}" -eq 64 ] || { echo "checksum file has no sha256 digest" >&2; exit 1; }
 if command -v sha256sum >/dev/null 2>&1; then
-  (cd "${TMP}" && sha256sum -c collabai.tar.gz.sha256)
+  GOT="$(sha256sum "${TMP}/collabai.tar.gz" | awk '{print $1}')"
 elif command -v shasum >/dev/null 2>&1; then
-  (cd "${TMP}" && shasum -a 256 -c collabai.tar.gz.sha256)
+  GOT="$(shasum -a 256 "${TMP}/collabai.tar.gz" | awk '{print $1}')"
 else
-  python3 - "${TMP}/collabai.tar.gz" "${TMP}/collabai.tar.gz.sha256" <<'EOF'
-import hashlib, sys
-path, sig = sys.argv[1], sys.argv[2]
-want = open(sig, encoding="utf-8").read().split()[0]
-got = hashlib.sha256(open(path, "rb").read()).hexdigest()
-if got != want:
-    print(f"checksum mismatch: got {got} want {want}", file=sys.stderr)
-    raise SystemExit(1)
-EOF
+  GOT="$(python3 -c 'import hashlib, sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' "${TMP}/collabai.tar.gz")"
 fi
+GOT="$(printf '%s' "${GOT}" | tr 'A-F' 'a-f')"
+if [ "${GOT}" != "${WANT}" ]; then
+  echo "checksum mismatch: got ${GOT} want ${WANT}" >&2
+  exit 1
+fi
+echo "checksum ok"
 
 mkdir -p "${SRC}"
 tar -xzf "${TMP}/collabai.tar.gz" -C "${SRC}"
