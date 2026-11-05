@@ -118,7 +118,7 @@ class MetaKeyTests(unittest.TestCase):
             meta_ai.store_key("file-key", home=home)
             with patch.dict(os.environ, {"COLLABAI_META_API_KEY": "env-key"}):
                 self.assertEqual(meta_ai.load_key(home=home), "env-key")
-            self.assertEqual(meta_ai.model_for(Path(tmp)), "meta-spark-1.3")
+            self.assertEqual(meta_ai.model_for(Path(tmp)), "muse-spark-1.3")
 
     def test_chat_without_key_fails_clean(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -243,12 +243,109 @@ class CodexBlockUpgradeTests(unittest.TestCase):
 
 
 class MetaParkedTests(unittest.TestCase):
-    def test_chat_is_parked_even_with_a_key(self):
+    def test_chat_works_with_a_key_and_poster(self):
+        # Unparked after the owner-pasted smoke proof (meta-test: ok).
+        captured: dict = {}
         with tempfile.TemporaryDirectory() as tmp:
-            with patch.dict(os.environ, {"COLLABAI_META_API_KEY": "k"}):
-                with self.assertRaises(meta_ai.MetaError) as ctx:
-                    meta_ai.chat([{"role": "user", "content": "hi"}], Path(tmp))
-            self.assertIn("parked", str(ctx.exception))
+            reply = meta_ai.chat(
+                [{"role": "user", "content": "hi"}], Path(tmp),
+                poster=_ok_poster(captured), key="LLM_test")
+        self.assertEqual(reply, "ready")
+        self.assertEqual(captured["model"], "muse-spark-1.3")
+
+
+def _ok_poster(captured):
+    def _post(url, payload, key):
+        captured.update(payload)
+        return json.dumps(
+            {"choices": [{"message": {"content": "ready"}}]}).encode("utf-8")
+    return _post
+
+
+class MetaSmokeTests(unittest.TestCase):
+    def test_smoke_bypasses_park_and_uses_muse_model(self):
+        captured: dict = {}
+        with tempfile.TemporaryDirectory() as tmp:
+            reply = meta_ai.smoke_test(
+                Path(tmp), poster=_ok_poster(captured), key="LLM_test")
+        self.assertEqual(reply, "ready")
+        self.assertEqual(captured["model"], "muse-spark-1.3")
+
+    def test_legacy_model_config_is_migrated(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            cfg = root / ".collabai" / "config.json"
+            cfg.parent.mkdir(parents=True)
+            cfg.write_text(json.dumps(
+                {"inference": {"model": "meta-spark-1.3"}}), encoding="utf-8")
+            self.assertEqual(meta_ai.model_for(root), "muse-spark-1.3")
+
+    def test_http_401_maps_to_key_hint(self):
+        import io
+        import urllib.error
+
+        def _bad_poster(url, payload, key):
+            raise urllib.error.HTTPError(
+                url, 401, "Unauthorized", hdrs=None,
+                fp=io.BytesIO(b'{"error":"bad key"}'))
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(meta_ai.MetaError) as ctx:
+                meta_ai.smoke_test(Path(tmp), poster=_bad_poster, key="bad")
+        self.assertIn("401", str(ctx.exception))
+        self.assertIn("--meta-key", str(ctx.exception))
+
+    def test_http_429_maps_to_rate_limit(self):
+        import io
+        import urllib.error
+
+        def _bad_poster(url, payload, key):
+            raise urllib.error.HTTPError(
+                url, 429, "Too Many", hdrs=None, fp=io.BytesIO(b"slow down"))
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(meta_ai.MetaError) as ctx:
+                meta_ai.smoke_test(Path(tmp), poster=_bad_poster, key="k")
+        self.assertIn("rate limit", str(ctx.exception))
+
+    def test_empty_content_is_a_clear_error(self):
+        def _empty_poster(url, payload, key):
+            return json.dumps(
+                {"choices": [{"message": {"content": None}}]}).encode("utf-8")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(meta_ai.MetaError) as ctx:
+                meta_ai.smoke_test(Path(tmp), poster=_empty_poster, key="k")
+        self.assertIn("empty reply", str(ctx.exception))
+
+
+class MetaChatLoopTests(unittest.TestCase):
+    def test_multi_turn_history_is_resent_and_clear_resets(self):
+        import io
+        from contextlib import redirect_stdout
+
+        from collabai import harness
+        from collabai.harness import _ai_form
+
+        calls: list[list[dict]] = []
+
+        def _fake_chat(messages, root):
+            calls.append([dict(m) for m in messages])
+            return f"reply-{len(calls)}"
+
+        with tempfile.TemporaryDirectory() as tmp, \
+                patch.object(meta_ai, "META_VERIFIED", True), \
+                patch.object(meta_ai, "chat", _fake_chat), \
+                patch.object(meta_ai, "load_key", lambda: "LLM_test"), \
+                redirect_stdout(io.StringIO()):
+            _ai_form(Path(tmp), harness._scripted if hasattr(harness, "_scripted")
+                     else _scripted(["hello", "follow up", "/clear", "fresh", "/quit"]))
+        # Second turn resends first user + assistant turns.
+        roles2 = [m["role"] for m in calls[1]]
+        self.assertEqual(roles2, ["developer", "user", "assistant", "user"])
+        # After /clear, history restarts.
+        roles3 = [m["role"] for m in calls[2]]
+        self.assertEqual(roles3, ["developer", "user"])
 
 
 if __name__ == "__main__":

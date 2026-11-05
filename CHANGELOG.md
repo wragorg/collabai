@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.2.0
+
+- Fixed: Meta model id corrected from the never-valid `meta-spark-1.3`
+  to `muse-spark-1.3` (Meta Model API docs); stored legacy configs are
+  migrated automatically. HTTP failures now print one mapped line
+  (401 key, 400/404 model, 429 rate limit) instead of a generic error.
+- Added: `collabai --meta-test` (one minimal call that proves key +
+  model + endpoint; owner-pasted result: `meta-test: ok (ready)`) and
+  a menu-8 multi-turn chat loop (`meta>` prompt, history resent per
+  turn, `/clear`, `/save`, `/note`, `/overlap`, `/standup`,
+  `/fortune`). Installer offers the Meta key again.
+
 ## 2.1.0
 
 Professional-release cleanup. No new daemon, no new dependencies

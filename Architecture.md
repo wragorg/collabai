@@ -134,10 +134,11 @@ animates its beacon in the header line, and picks project files with `@`
   once). Questions arriving during hand-over are flagged on exit.
   `ask --wait` / `inbox --answer <id> --wait` let an agent wait in the
   foreground for an answer; collabai never pushes into a running session.
-- `collabai/meta_ai.py`: Meta AI extras, PARKED in 2.1.0
-  (`META_VERIFIED = False`; model id/endpoint unverified, no AI call is
-  made). Key storage at `~/.config/collabai/meta.key` (`0600`, outside
-  any repo; env override) is unchanged and harmless.
+- `collabai/meta_ai.py`: Meta Model API client, model `muse-spark-1.3`,
+  verified live (owner-pasted `collabai --meta-test`: `ok (ready)`).
+  Menu 8 is a multi-turn chat loop. Key storage at
+  `~/.config/collabai/meta.key` (`0600`, outside any repo; env
+  override) is unchanged.
 
 ### Installer (`install.sh`)
 
@@ -148,9 +149,8 @@ under `~/.local/share/collabai-<v>`, verify `collabai/__main__.py` layout,
 write a `~/.local/bin/collabai` shim, no sudo. Always instruct users to
 download-then-inspect rather than blind-piping. Clean install of v1.0.1
 was owner-proven; the v2.0.0 clean install and self-update still need an
-owner-pasted proof against a published release. Since 2.1.0 the
-installer no longer offers a Meta key (extras parked); `--meta-key`
-remains available manually.
+owner-pasted proof against a published release. The installer offers
+an optional Meta key at the end (`collabai --meta-key`, blank skips).
 
 ## Repo shape and extension points
 

@@ -7,10 +7,12 @@ The key is never written into a project `.collabai/`, never logged, and
 stripped from launched-agent environments.
 
 Without a key nothing here runs and the harness behaves exactly as v1.
-With a key, every AI call prints the model in use. Inputs are collabai
-metadata only (tasks, areas, file names, decisions) — never file
-contents, transcripts, diffs, or prompts from agent sessions. Output is
-shown for the developer to keep or discard; nothing is auto-saved.
+With a key, every AI call prints the model in use. The one-shot extras
+use collabai metadata only (tasks, areas, file names, decisions). The
+menu-8 chat loop sends only what the developer types at its prompt —
+never file contents, transcripts, diffs, or prompts from agent
+sessions. Output is shown for the developer to keep or discard;
+nothing is auto-saved and chat history is never written to disk.
 """
 
 from __future__ import annotations
@@ -18,18 +20,22 @@ from __future__ import annotations
 import json
 import os
 import sys
+import urllib.error
 import urllib.request
 from pathlib import Path
 
-DEFAULT_MODEL = "meta-spark-1.3"
+# Verified against Meta's official Model API docs (dev.meta.ai/docs/models):
+# the model id is muse-spark-1.3 (the earlier meta-spark-1.3 never existed
+# and made every call fail). Endpoint is the documented Chat Completions URL.
+DEFAULT_MODEL = "muse-spark-1.3"
+LEGACY_MODEL = "meta-spark-1.3"
 API_URL = "https://api.meta.ai/v1/chat/completions"
 MAX_OUTPUT = 1000
-# The model id and endpoint above are owner-supplied and UNVERIFIED: no
-# live smoke call has been owner-pasted yet. Until one passes, Meta AI
-# extras are parked — chat() refuses and menu 8 explains — so a
-# professional release never presents an unproven endpoint as working.
-# Flip to True only with a pasted successful smoke call on record.
-META_VERIFIED = False
+# Verified live: owner-pasted `collabai --meta-test` returned
+# "meta-test: ok (ready)" with this model and endpoint, so menu 8 is
+# unparked. If the model/endpoint ever changes, set this back to False
+# until a new pasted smoke call passes.
+META_VERIFIED = True
 
 
 class MetaError(RuntimeError):
@@ -84,9 +90,29 @@ def model_for(root: Path) -> str:
     try:
         cfg = json.loads((root / ".collabai" / "config.json").read_text(encoding="utf-8"))
         model = str(cfg.get("inference", {}).get("model", "")).strip()
-        return model or DEFAULT_MODEL
     except (OSError, ValueError, AttributeError):
         return DEFAULT_MODEL
+    if not model or model == LEGACY_MODEL:
+        # Migrate the never-valid legacy id instead of failing every call.
+        return DEFAULT_MODEL
+    return model
+
+
+def _describe_http_error(exc: urllib.error.HTTPError) -> str:
+    try:
+        body = exc.read().decode("utf-8", errors="replace")[:200].strip()
+    except Exception:
+        body = ""
+    detail = f": {body}" if body else ""
+    if exc.code == 401:
+        return (f"Meta API key rejected (HTTP 401){detail}. Store a Model API "
+                "key (starts with LLM_) with: collabai --meta-key")
+    if exc.code in (400, 404):
+        return (f"Meta rejected the request (HTTP {exc.code}){detail}. "
+                f"Model in use: {DEFAULT_MODEL}")
+    if exc.code == 429:
+        return f"Meta rate limit hit (HTTP 429){detail}. Wait and try again."
+    return f"Meta call failed (HTTP {exc.code}){detail}"
 
 
 def _post(url: str, payload: dict, key: str) -> bytes:
@@ -104,24 +130,52 @@ def _post(url: str, payload: dict, key: str) -> bytes:
 
 def chat(messages: list[dict], root: Path, poster=None, key: str | None = None) -> str:
     """One chat call. Prints the model in use. Raises MetaError on failure."""
-    if not META_VERIFIED:
+    return _chat(messages, root, poster=poster, key=key, bypass_parked=False)
+
+
+def smoke_test(root: Path, poster=None, key: str | None = None) -> str:
+    """One minimal live call to prove key + model + endpoint. Bypasses the park.
+
+    This is the gate for flipping META_VERIFIED: it exists so the owner
+    can produce the proof on their own machine with `collabai --meta-test`.
+    """
+    return _chat(
+        [{"role": "user", "content": "Reply with the single word: ready"}],
+        root, poster=poster, key=key, bypass_parked=True,
+    )
+
+
+def _chat(messages: list[dict], root: Path, poster=None, key: str | None = None,
+          bypass_parked: bool = False) -> str:
+    if not META_VERIFIED and not bypass_parked:
         raise MetaError(
-            "Meta AI extras are parked in this release (model/endpoint "
-            "unverified); harness continues without AI"
+            "Meta AI extras are parked until a live smoke call passes "
+            "(run: collabai --meta-test); harness continues without AI"
         )
     api_key = key if key is not None else load_key()
     if not api_key:
         raise MetaError("no Meta key set (run: collabai --meta-key)")
     model = model_for(root)
-    print(f"Meta AI via {model} (your key; metadata only, nothing auto-saved)")
+    print(f"Meta AI via {model} (your key; nothing auto-saved)")
     send = poster or _post
     try:
         raw = send(API_URL, {"model": model, "messages": messages}, api_key)
         obj = json.loads(raw.decode("utf-8"))
-        text = str(obj["choices"][0]["message"]["content"])
+        text = str(obj["choices"][0]["message"]["content"] or "")
+    except MetaError:
+        raise
+    except urllib.error.HTTPError as exc:
+        raise MetaError(_describe_http_error(exc)) from exc
     except (OSError, ValueError, KeyError, IndexError, TypeError) as exc:
+        if "timed out" in str(exc).lower() or "timeout" in str(exc).lower():
+            raise MetaError("Meta call timed out; check the network and try again") from exc
         raise MetaError(f"Meta call failed ({exc}); harness continues without AI") from exc
-    return text.strip()[:MAX_OUTPUT]
+    text = text.strip()
+    if not text:
+        raise MetaError(
+            "Meta returned an empty reply (reasoning may have used the "
+            "output budget); ask again")
+    return text[:MAX_OUTPUT]
 
 
 def _meta_lines(snapshot: dict) -> str:
@@ -136,8 +190,8 @@ def _meta_lines(snapshot: dict) -> str:
 
 def draft_note_messages(files: list[str], hint: str) -> list[dict]:
     return [
-        {"role": "system", "content": "Draft one short pair-programming note (max 400 chars) "
-                                      "from file names and a hint only. No code."},
+        {"role": "developer", "content": "Draft one short pair-programming note (max 400 chars) "
+                                         "from file names and a hint only. No code."},
         {"role": "user", "content": f"files: {', '.join(files) or 'none'}\nhint: {hint}"},
     ]
 
@@ -150,6 +204,6 @@ def fun_messages(kind: str, snapshot: dict) -> list[dict]:
         "celebrate": "Write one short celebration line for a finished task. One sentence.",
     }
     return [
-        {"role": "system", "content": "You are Collab Bot, a cheerful terminal companion. Be brief."},
+        {"role": "developer", "content": "You are Collab Bot, a cheerful terminal companion. Be brief."},
         {"role": "user", "content": f"{prompts[kind]}\n{_meta_lines(snapshot)}"},
     ]

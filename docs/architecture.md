@@ -1,4 +1,4 @@
-# Architecture (v2.1.0)
+# Architecture (v2.2.0)
 
 One stdlib-only Python CLI. No backend, no extra inference unless the developer adds a Meta key. Everything runs in the foreground while its command runs; the only background-shaped piece is `collabai watch`, started and stopped by hand.
 
@@ -8,7 +8,7 @@ One stdlib-only Python CLI. No backend, no extra inference unless the developer 
 - `collabai/bot.py` — Collab Bot: foreground panel over local records plus optional live peers. Overlaps first, one suggested next step per refresh. Never posts or sends.
 - `collabai/notify.py` — agent question inbox in `.collabai/inbox/`: short, secret-scanned, 24-hour expiry, answered in the harness. `ask --wait` / `inbox --answer <id> --wait` poll for the answer in the foreground (no daemon; exit 2 on timeout). `watch` polls it in the foreground.
 - `collabai/agents.py` — launch `claude`/`codex`/`muse` from the harness by terminal hand-over only (the line relay was removed in 2.1.0; it could not drive TTY agents). The Meta key is stripped from the child environment; questions arriving during hand-over are flagged on exit.
-- `collabai/meta_ai.py` — Meta AI extras, PARKED in 2.1.0 (`META_VERIFIED = False`): model id/endpoint unverified, so no AI call is made. Key storage at `~/.config/collabai/meta.key` (`0600`, outside any repo) is unchanged.
+- `collabai/meta_ai.py` — Meta Model API client, model `muse-spark-1.3`, verified live by an owner-pasted `collabai --meta-test` (`ok (ready)`). Menu 8 is a multi-turn `meta>` chat loop. Key storage at `~/.config/collabai/meta.key` (`0600`, outside any repo) is unchanged.
 - `collabai/updater.py` — release download over HTTPS only, `.sha256` verified fail-closed, old install restored on failure.
 - `collabai/adapters/claude.py` — SessionStart hook in `.claude/settings.local.json`.
 - `collabai/adapters/codex.py` — managed block in root `AGENTS.md`, including the `ask`/`inbox` question flow.

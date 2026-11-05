@@ -22,7 +22,7 @@ DEFAULT_CONFIG = {
     "live_share": {"enabled": False},
     "git": {"fetch_opt_in": False, "interval_seconds": 3600},
     "telemetry": {"enabled": False},
-    "inference": {"extra_llm": False, "provider": "meta", "model": "meta-spark-1.3"},
+    "inference": {"extra_llm": False, "provider": "meta", "model": "muse-spark-1.3"},
     "notifications": {"inbox": True, "watcher": False},
 }
 
@@ -431,8 +431,7 @@ def run_meta_key() -> int:
         print(str(exc), file=sys.stderr)
         return 1
     print(f"key stored at {path} (0600, outside any repo). It is never logged or shared.")
-    print("note: Meta AI extras are parked in this release (model/endpoint unverified); "
-          "the key is stored but no AI call is made.")
+    print("prove this key any time with: collabai --meta-test")
     return 0
 
 
@@ -440,6 +439,31 @@ def run_meta_key_remove() -> int:
     from .meta_ai import delete_key, key_path
 
     print("removed stored Meta key." if delete_key() else f"no stored key at {key_path()}")
+    return 0
+
+
+def run_meta_test() -> int:
+    from pathlib import Path as _P
+
+    from .meta_ai import MetaError, key_path, load_key, model_for, smoke_test
+
+    root = _P.cwd()
+    if os.environ.get("COLLABAI_META_API_KEY", "").strip():
+        source = "COLLABAI_META_API_KEY env var"
+    elif key_path().exists():
+        source = f"stored key file ({key_path()})"
+    else:
+        source = "none"
+    print(f"meta-test: model {model_for(root)}, key source: {source}")
+    if load_key() is None:
+        print("no Meta key set (run: collabai --meta-key)", file=sys.stderr)
+        return 1
+    try:
+        reply = smoke_test(root)
+    except MetaError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    print(f"meta-test: ok ({reply})")
     return 0
 
 
@@ -456,6 +480,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="store a Meta API key (hidden prompt, 0600, outside any repo)")
     p.add_argument("--meta-key-remove", action="store_true",
                    help="delete the stored Meta API key")
+    p.add_argument("--meta-test", action="store_true",
+                   help="one minimal Meta call to prove key + model + endpoint")
     sub = p.add_subparsers(dest="cmd", required=False)
     pi = sub.add_parser("init", help="initialize project-local private state")
     pi.add_argument("--force", action="store_true", help="reset config to defaults")
@@ -557,6 +583,8 @@ def main(argv: list[str] | None = None) -> None:
         raise SystemExit(run_meta_key())
     if getattr(args, "meta_key_remove", False):
         raise SystemExit(run_meta_key_remove())
+    if getattr(args, "meta_test", False):
+        raise SystemExit(run_meta_test())
     if getattr(args, "update", False) and getattr(args, "uninstall_full", False):
         print("use only one of --update / --uninstall", file=sys.stderr)
         raise SystemExit(2)

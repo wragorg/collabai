@@ -54,14 +54,13 @@ owner-proofed — each item needs pasted terminal output before it is done):
 - Harness fits one screen; beacon animates in the header, not the bottom.
 - Agent question inbox (`ask`/`inbox`, menu 2) plus opt-in foreground
   `watch`; agents launchable from the harness (menu 7, hand-over only).
-- Meta AI extras (menu 8) are PARKED in 2.1.0: key storage at
-  `~/.config/collabai/meta.key` (`0600`, outside any repo) remains, but
-  `META_VERIFIED = False` so no AI call is made until an owner-pasted
-  smoke call verifies the model id and endpoint.
 - v2.1.0: relay launch removed, `ask --wait` / `inbox --wait` added,
   provider boundary disclosed in `doctor`/adapters/wizard, beta note
-  replaced by stated known limits. Still unverified until owner pastes
-  the full suite and release proofs.
+  replaced by stated known limits.
+- v2.2.0: Meta model id corrected to `muse-spark-1.3`, `collabai
+  --meta-test` added, menu 8 is a multi-turn chat loop. Verified live:
+  owner-pasted `meta-test: ok (ready)`. Full suite and two-developer
+  proofs for 2.2.0 still need owner-pasted output.
 
 Still open: two-real-developer test and Git-check warning beat are not
 yet proofed. Exclude agent-prompting files (`System.md`,
@@ -80,7 +79,7 @@ yet proofed. Exclude agent-prompting files (`System.md`,
 - `collabai/updater.py` — `--update` (verified download, rollback) and `--uninstall`.
 - `collabai/notify.py` — `.collabai/inbox/` questions (24h), foreground `watch`, `--wait` polling.
 - `collabai/agents.py` — launch claude/codex/muse (terminal hand-over only).
-- `collabai/meta_ai.py` — Meta extras, parked in 2.1.0; key outside any repo.
+- `collabai/meta_ai.py` — Meta chat (menu 8 loop, `--meta-test`); key outside any repo.
 - `install.sh` — `curl -fsSL` installer to `~/.local`, no sudo, optional Meta key at the end.
 - `docs/` — SSH guide, privacy model, short architecture note, short demo sketch.
 

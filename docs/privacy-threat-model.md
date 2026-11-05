@@ -1,4 +1,4 @@
-# Privacy and threat model (v2.1.0)
+# Privacy and threat model (v2.2.0)
 
 Defaults: transcripts never captured, memory local-only, Live Share off,
 fetch opt-in off, telemetry off, no extra inference.
@@ -11,10 +11,12 @@ v2 additions, same rules:
   leaves nothing running.
 - The Meta key (optional) is stored only at `~/.config/collabai/meta.key`
   (`0600`, outside any repo), never logged, and stripped from launched
-  agents' environments. Meta AI extras are parked in 2.1.0: the model id
-  and endpoint are unverified, so no AI call is made at all. When
-  unparked, extras will send collabai metadata only (task names, areas,
-  file names, decisions) — never file contents or transcripts.
+  agents' environments. Meta AI was verified live with an owner-pasted
+  `collabai --meta-test` (`ok (ready)`). The one-shot extras send collabai metadata only (task
+  names, areas, file names, decisions), and the menu-8 chat sends only
+  what the developer types at its prompt — never file contents or
+  transcripts. Prompts typed in menu 8 leave the machine to Meta; chat
+  history is kept in memory only and never written to disk.
 - Self-update downloads release tarballs over HTTPS only and verifies
   `.sha256` fail-closed before extracting, like the installer.
 

@@ -20,7 +20,7 @@ MENU: list[tuple[str, str, str, str]] = [
     ("5", "DO SOMETHING", "Record a choice we approved", "Decide"),
     ("6", "DO SOMETHING", "Send a decision to my pair", "Share"),
     ("7", "DO SOMETHING", "Run an agent here", "Launch"),
-    ("8", "DO SOMETHING", "Collab Bot AI extras (parked)", "AI"),
+    ("8", "DO SOMETHING", "Chat with Meta AI", "AI"),
     ("9", "CHECK", "Did upstream change my files?", "Git check"),
     ("10", "CHECK", "Is my setup OK?", "Doctor"),
     ("11", "LEAVE", "Leave", "Quit"),
@@ -434,41 +434,99 @@ def _launch_form(root: Path, input_fn) -> None:
     launch_agent(root, names[int(picked) - 1])
 
 
+_AI_DEVELOPER = (
+    "You are Collab Bot, a helpful pair-programming companion in a terminal. "
+    "Be concise and direct. You have no access to files or tools; say so if asked."
+)
+_AI_MAX_HISTORY = 20
+_AI_MAX_PROMPT = 4000
+
+
 def _ai_form(root: Path, input_fn) -> None:
+    """Menu 8: free-form multi-turn Meta chat, Muse / Claude Code style.
+
+    Only what the developer types at the meta> prompt is sent. History
+    lives in memory only, is capped, and is never written to disk.
+    """
     from .bot import build_snapshot
     from .memory import load_records
-    from .meta_ai import META_VERIFIED, MetaError, chat, draft_note_messages, fun_messages, load_key
+    from .meta_ai import (
+        META_VERIFIED,
+        MetaError,
+        chat,
+        draft_note_messages,
+        fun_messages,
+        load_key,
+        model_for,
+    )
 
     if not META_VERIFIED:
-        print("Meta AI extras are parked in this release: the model id and "
-              "endpoint are unverified, so no AI call is made.")
-        print("collabai works exactly as before without them.")
+        print("Meta AI is parked until a live smoke call passes on this machine.")
+        print("Prove your key with: collabai --meta-test")
+        print("collabai works exactly as before without it.")
         return
     if not load_key():
         print("Meta AI is off: no key set. Add one with: collabai --meta-key")
         print("without a key, collabai works exactly as before.")
         return
-    snapshot = build_snapshot(load_records(root))
-    print("  1  Draft a note from files + a hint")
-    print("  2  Explain our overlaps")
-    print("  3  Standup one-liner")
-    print("  4  Fortune cookie")
-    picked = _ask(input_fn, "AI pick (blank = back): ")
-    try:
-        if picked == "1":
-            files = _files_prompt(root, input_fn)
-            hint = _ask(input_fn, "one-line hint: ")
-            draft = chat(draft_note_messages(files, hint), root)
-            print(f"--- draft (untrusted, yours to edit):\n{draft}")
-            if _ask(input_fn, "save it as a note? [y/N]: ").lower() == "y":
-                _remember_form(root, input_fn, prefill_text=draft[:500])
-        elif picked in ("2", "3", "4"):
-            kind = {"2": "overlap", "3": "standup", "4": "fortune"}[picked]
-            print(chat(fun_messages(kind, snapshot), root))
-        elif picked:
-            print(f"no such pick: {picked}")
-    except MetaError as exc:
-        print(str(exc))
+    print(f"Meta AI chat via {model_for(root)} — type a prompt, /help for commands, "
+          "blank or /quit to return.")
+    print("Only what you type here is sent to Meta. History is not saved.")
+    history: list[dict] = [{"role": "developer", "content": _AI_DEVELOPER}]
+    last_reply = ""
+    while True:
+        try:
+            line = _ask(input_fn, "meta> ")
+        except (EOFError, KeyboardInterrupt):
+            return
+        if line in ("", "/quit"):
+            return
+        if line == "/help":
+            print("/clear reset conversation · /save save last reply as a note · "
+                  "/note /overlap /standup /fortune one-shot extras · /quit back")
+            continue
+        if line == "/clear":
+            history = [{"role": "developer", "content": _AI_DEVELOPER}]
+            last_reply = ""
+            print("conversation cleared.")
+            continue
+        if line == "/save":
+            if not last_reply:
+                print("nothing to save yet.")
+                continue
+            _remember_form(root, input_fn, prefill_text=last_reply[:500])
+            continue
+        try:
+            if line == "/note":
+                files = _files_prompt(root, input_fn)
+                hint = _ask(input_fn, "one-line hint: ")
+                last_reply = chat(draft_note_messages(files, hint), root)
+                print(last_reply)
+                continue
+            if line in ("/overlap", "/standup", "/fortune"):
+                kind = line[1:]
+                snapshot = build_snapshot(load_records(root))
+                last_reply = chat(fun_messages(kind, snapshot), root)
+                print(last_reply)
+                continue
+            if line.startswith("/"):
+                print(f"unknown command: {line} (/help lists them)")
+                continue
+            history.append({"role": "user", "content": line[:_AI_MAX_PROMPT]})
+            print("thinking…")
+            try:
+                reply = chat(history, root)
+            except MetaError:
+                history.pop()
+                raise
+            history.append({"role": "assistant", "content": reply})
+            # Cap history: developer message + most recent turns.
+            if len(history) > _AI_MAX_HISTORY + 1:
+                history = history[:1] + history[-_AI_MAX_HISTORY:]
+            last_reply = reply
+            print(reply)
+        except MetaError as exc:
+            print(str(exc))
 
 
 def _wizard(root: Path, input_fn) -> None:
