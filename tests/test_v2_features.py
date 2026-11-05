@@ -308,6 +308,14 @@ class MetaSmokeTests(unittest.TestCase):
                 meta_ai.smoke_test(Path(tmp), poster=_bad_poster, key="k")
         self.assertIn("rate limit", str(ctx.exception))
 
+    def test_fallback_cafile_picks_existing_bundle(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle = Path(tmp) / "cert.pem"
+            bundle.write_text("x", encoding="utf-8")
+            with patch.object(meta_ai, "_CAFILE_CANDIDATES", (str(bundle),)), \
+                    patch.dict(os.environ, {}, clear=True):
+                self.assertEqual(meta_ai._fallback_cafile(), str(bundle))
+
     def test_ssl_error_maps_to_certificate_hint(self):
         import ssl
         import urllib.error

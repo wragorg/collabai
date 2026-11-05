@@ -124,6 +124,57 @@ def _describe_http_error(exc: urllib.error.HTTPError) -> str:
     return f"Meta call failed (HTTP {exc.code}){detail}"
 
 
+# CA bundles Python may not find by default. macOS ships /etc/ssl/cert.pem
+# but python.org Pythons ignore it until "Install Certificates" runs, and
+# judges/users should never have to set SSL_CERT_FILE by hand. Verification
+# is always on; we only point OpenSSL at a bundle that already exists.
+_CAFILE_CANDIDATES = (
+    "/etc/ssl/cert.pem",
+    "/etc/ssl/certs/ca-certificates.crt",
+    "/opt/homebrew/etc/ca-certificates/cert.pem",
+    "/usr/local/etc/ca-certificates/cert.pem",
+    "/opt/homebrew/etc/openssl@3/cert.pem",
+    "/usr/local/etc/openssl@3/cert.pem",
+)
+
+
+def _fallback_cafile() -> str | None:
+    env = os.environ.get("SSL_CERT_FILE", "").strip()
+    if env and Path(env).exists():
+        return env
+    for cand in _CAFILE_CANDIDATES:
+        if Path(cand).exists():
+            return cand
+    try:
+        import certifi
+
+        return certifi.where()
+    except Exception:
+        return None
+
+
+def _is_ssl_error(exc: BaseException) -> bool:
+    if isinstance(exc, ssl.SSLCertVerificationError):
+        return True
+    return isinstance(exc, urllib.error.URLError) and isinstance(
+        exc.reason, ssl.SSLCertVerificationError)
+
+
+def _fetch_bytes(req: urllib.request.Request, context=None) -> bytes:
+    try:
+        with urllib.request.urlopen(req, timeout=30, context=context) as resp:
+            return resp.read()
+    except (ssl.SSLCertVerificationError, urllib.error.URLError) as exc:
+        if context is not None or not _is_ssl_error(exc):
+            raise
+        cafile = _fallback_cafile()
+        if cafile is None:
+            raise
+        ctx = ssl.create_default_context(cafile=cafile)
+        with urllib.request.urlopen(req, timeout=30, context=ctx) as resp:
+            return resp.read()
+
+
 def _post(url: str, payload: dict, key: str) -> bytes:
     if not url.startswith("https://"):
         raise MetaError("refusing non-HTTPS API URL")
@@ -133,8 +184,7 @@ def _post(url: str, payload: dict, key: str) -> bytes:
         headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        return resp.read()
+    return _fetch_bytes(req)
 
 
 def chat(messages: list[dict], root: Path, poster=None, key: str | None = None) -> str:

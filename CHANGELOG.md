@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.2.2
+
+- Fixed: on TLS verification failure, Meta calls and `--update`
+  downloads retry once with a CA bundle that already exists on the
+  machine (`/etc/ssl/cert.pem` on macOS, distro and Homebrew paths,
+  `certifi` if present). No env var, no manual certificate install,
+  verification never disabled. This removes the macOS
+  `CERTIFICATE_VERIFY_FAILED` failure for python.org Pythons.
+
 ## 2.2.1
 
 - Fixed: TLS certificate failures (macOS Python with no CA bundle) now

@@ -17,11 +17,14 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import os
 import re
 import shutil
+import ssl
 import sys
 import tarfile
 import tempfile
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -48,12 +51,50 @@ def release_urls(version: str) -> tuple[str, str]:
     return base, base + ".sha256"
 
 
+# Same CA fallback as meta_ai: point OpenSSL at a bundle that already
+# exists on the machine (macOS ships /etc/ssl/cert.pem). Verification on.
+_CAFILE_CANDIDATES = (
+    "/etc/ssl/cert.pem",
+    "/etc/ssl/certs/ca-certificates.crt",
+    "/opt/homebrew/etc/ca-certificates/cert.pem",
+    "/usr/local/etc/ca-certificates/cert.pem",
+    "/opt/homebrew/etc/openssl@3/cert.pem",
+    "/usr/local/etc/openssl@3/cert.pem",
+)
+
+
+def _fallback_cafile() -> str | None:
+    env = os.environ.get("SSL_CERT_FILE", "").strip()
+    if env and Path(env).exists():
+        return env
+    for cand in _CAFILE_CANDIDATES:
+        if Path(cand).exists():
+            return cand
+    try:
+        import certifi
+
+        return certifi.where()
+    except Exception:
+        return None
+
+
 def _fetch(url: str) -> bytes:
     if not url.startswith("https://"):
         raise ValueError(f"refusing non-HTTPS URL: {url}")
     req = urllib.request.Request(url, headers={"User-Agent": "collabai-updater"})
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        return resp.read()
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return resp.read()
+    except (ssl.SSLCertVerificationError, urllib.error.URLError) as exc:
+        reason = exc.reason if isinstance(exc, urllib.error.URLError) else exc
+        if not isinstance(reason, ssl.SSLCertVerificationError):
+            raise
+        cafile = _fallback_cafile()
+        if cafile is None:
+            raise
+        ctx = ssl.create_default_context(cafile=cafile)
+        with urllib.request.urlopen(req, timeout=30, context=ctx) as resp:
+            return resp.read()
 
 
 def latest_version(fetcher=None) -> str:
