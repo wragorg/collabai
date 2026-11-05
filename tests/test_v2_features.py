@@ -1,8 +1,9 @@
 """v2 feature tests (stdlib unittest, no network, no real agents).
 
 Owner-run: python3 -m unittest discover -s tests -v
-Covers the @ picker, the question inbox, games logic, Meta key storage,
-and agent detection. Downloads and AI calls are never made here.
+Covers the @ picker, the question inbox (including --wait), Meta key
+storage and parking, hand-over launch, and the Codex block upgrade.
+Downloads and AI calls are never made here.
 """
 
 from __future__ import annotations
@@ -15,7 +16,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 from collabai import meta_ai, notify
-from collabai.agents import looks_like_question
 from collabai.harness import MENU, _files_prompt, list_project_files, render_top_line
 
 
@@ -133,24 +133,122 @@ class MetaKeyTests(unittest.TestCase):
                 meta_ai.store_key("a b c", home=Path(tmp))
 
 
-class AgentRelayTests(unittest.TestCase):
-    def test_relay_survives_agent_exiting_immediately(self):
+class AgentLaunchTests(unittest.TestCase):
+    def test_handover_runs_agent_and_returns_its_code(self):
         import sys as _sys
 
         from collabai import agents
 
         with patch.dict(agents.AGENTS, {"claude": [_sys.executable, "-c", "pass"]}), \
                 patch.object(agents.shutil, "which", lambda _exe: "/fake/claude"):
-            code = agents.launch_agent(
-                Path(tempfile.gettempdir()), "claude", relay=True,
-                input_fn=lambda _prompt="": "create a fake report.md file here",
-            )
+            code = agents.launch_agent(Path(tempfile.gettempdir()), "claude")
         self.assertEqual(code, 0)
 
-    def test_question_detection(self):
-        self.assertTrue(looks_like_question("Allow this command? [y/N]"))
-        self.assertTrue(looks_like_question("Which file should I edit?"))
-        self.assertFalse(looks_like_question("done, all tests pass"))
+    def test_handover_surfaces_pending_question_on_exit(self):
+        import io
+        import sys as _sys
+        from contextlib import redirect_stdout
+
+        from collabai import agents
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            rec = notify.ask_question(root, "codex", "Cookies or tokens?")
+            self.assertIsNotNone(rec)
+            buf = io.StringIO()
+            with patch.dict(agents.AGENTS, {"claude": [_sys.executable, "-c", "pass"]}), \
+                    patch.object(agents.shutil, "which", lambda _exe: "/fake/claude"), \
+                    redirect_stdout(buf):
+                code = agents.launch_agent(root, "claude")
+            self.assertEqual(code, 0)
+            self.assertIn("agent question(s) waiting", buf.getvalue())
+
+    def test_relay_flag_is_rejected(self):
+        import argparse
+
+        from collabai.cli import cmd_launch
+
+        code = cmd_launch(argparse.Namespace(agent="claude", relay=True))
+        self.assertEqual(code, 2)
+
+
+class WaitForAnswerTests(unittest.TestCase):
+    def test_wait_returns_existing_answer_immediately(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            rec = notify.ask_question(root, "codex", "Cookies or tokens?")
+            notify.answer_question(root, rec["id"], "cookies")
+            self.assertEqual(
+                notify.wait_for_answer(root, rec["id"], timeout_seconds=0), "cookies")
+
+    def test_wait_times_out_without_answer(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            rec = notify.ask_question(root, "codex", "Cookies or tokens?")
+            self.assertIsNone(
+                notify.wait_for_answer(root, rec["id"], timeout_seconds=0))
+
+    def test_wait_returns_answer_that_arrives_while_waiting(self):
+        import threading
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            rec = notify.ask_question(root, "codex", "Cookies or tokens?")
+            timer = threading.Timer(
+                0.2, lambda: notify.answer_question(root, rec["id"], "tokens"))
+            timer.start()
+            try:
+                self.assertEqual(
+                    notify.wait_for_answer(root, rec["id"], timeout_seconds=5,
+                                           poll_seconds=0.05),
+                    "tokens")
+            finally:
+                timer.cancel()
+
+    def test_wait_unknown_question_returns_none(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.assertFalse(notify.has_question(root, "nope"))
+            self.assertIsNone(
+                notify.wait_for_answer(root, "nope", timeout_seconds=0))
+
+    def test_inbox_wait_unknown_id_is_error(self):
+        import argparse
+
+        from collabai.cli import cmd_inbox
+
+        with tempfile.TemporaryDirectory() as tmp, \
+                patch.object(Path, "cwd", classmethod(lambda cls: Path(tmp))):
+            code = cmd_inbox(argparse.Namespace(
+                answer="nope", wait=True, timeout=0.0))
+        self.assertEqual(code, 1)
+
+
+class CodexBlockUpgradeTests(unittest.TestCase):
+    def test_apply_upgrades_old_block_and_preserves_user_content(self):
+        from collabai.adapters import codex
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "AGENTS.md").write_text(
+                "# mine\n\n<!-- collabai:start -->\nold block\n"
+                "<!-- collabai:end -->\n\ntail\n", encoding="utf-8")
+            self.assertEqual(codex.apply(root), 0)
+            text = (root / "AGENTS.md").read_text(encoding="utf-8")
+            self.assertIn("# mine", text)
+            self.assertIn("tail", text)
+            self.assertNotIn("old block", text)
+            self.assertIn("--wait", text)
+            self.assertEqual(codex.apply(root), 0)
+
+
+class MetaParkedTests(unittest.TestCase):
+    def test_chat_is_parked_even_with_a_key(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.dict(os.environ, {"COLLABAI_META_API_KEY": "k"}):
+                with self.assertRaises(meta_ai.MetaError) as ctx:
+                    meta_ai.chat([{"role": "user", "content": "hi"}], Path(tmp))
+            self.assertIn("parked", str(ctx.exception))
 
 
 if __name__ == "__main__":

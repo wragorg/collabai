@@ -92,12 +92,20 @@ def _check(exe: str) -> str:
     return "not found"
 
 
+PROVIDER_BOUNDARY = (
+    "context boundary: lines printed by `collabai context` are sent to your "
+    "chosen model provider. Preview them yourself with: "
+    'collabai context --files "<paths>"'
+)
+
+
 def cmd_doctor(args: argparse.Namespace) -> int:
     del args
     print(f"collabai {__version__}")
     print(f"python: {sys.version.split()[0]} (need >= 3.11)")
     print(f"git: {_check('git')}")
     print(f"ssh: {_check('ssh')}")
+    print(PROVIDER_BOUNDARY)
     print(f"claude config: {'present' if Path.home().joinpath('.claude/settings.json').exists() else 'absent'}")
     codex_cfg = Path.home() / ".codex" / "config.toml"
     print(f"codex config: {'present' if codex_cfg.exists() else 'absent'}")
@@ -315,7 +323,7 @@ def cmd_bot(args: argparse.Namespace) -> int:
 def cmd_ask(args: argparse.Namespace) -> int:
     from pathlib import Path as _P
 
-    from .notify import ask_question
+    from .notify import ask_question, wait_for_answer
 
     options = [o.strip() for o in (args.options or "").split("|") if o.strip()]
     try:
@@ -325,6 +333,25 @@ def cmd_ask(args: argparse.Namespace) -> int:
         print(str(exc), file=sys.stderr)
         return 1
     print(f"question {rec['id']} saved for the developer (expires in 24h)")
+    if getattr(args, "wait", False):
+        timeout = getattr(args, "timeout", 600.0)
+        if timeout is None or timeout < 0:
+            print("--timeout must be >= 0", file=sys.stderr)
+            return 1
+        print(f"waiting up to {timeout:g}s for the developer's answer "
+              "(answer in the harness, menu 2, or Ctrl-C to stop waiting)...")
+        try:
+            answer = wait_for_answer(_P.cwd(), rec["id"], timeout_seconds=timeout)
+        except KeyboardInterrupt:
+            print(f"\nstopped waiting; read the answer later with: "
+                  f"collabai inbox --answer {rec['id']}")
+            return 2
+        if answer is None:
+            print(f"no answer within {timeout:g}s; read it later with: "
+                  f"collabai inbox --answer {rec['id']}")
+            return 2
+        print(answer)
+        return 0
     print(f"read the answer later with: collabai inbox --answer {rec['id']}")
     return 0
 
@@ -332,10 +359,28 @@ def cmd_ask(args: argparse.Namespace) -> int:
 def cmd_inbox(args: argparse.Namespace) -> int:
     from pathlib import Path as _P
 
-    from .notify import list_pending, read_answer
+    from .notify import has_question, list_pending, read_answer, wait_for_answer
 
     root = _P.cwd()
     if args.answer:
+        if getattr(args, "wait", False):
+            if not has_question(root, args.answer):
+                print(f"no such question: {args.answer}", file=sys.stderr)
+                return 1
+            timeout = getattr(args, "timeout", 600.0)
+            if timeout is None or timeout < 0:
+                print("--timeout must be >= 0", file=sys.stderr)
+                return 1
+            try:
+                waited = wait_for_answer(root, args.answer, timeout_seconds=timeout)
+            except KeyboardInterrupt:
+                print("\nstopped waiting.", file=sys.stderr)
+                return 2
+            if waited is None:
+                print(f"pending: no answer within {timeout:g}s for {args.answer}")
+                return 2
+            print(waited)
+            return 0
         text = read_answer(root, args.answer)
         print(text if text is not None else f"pending: no answer yet for {args.answer}")
         return 0 if text is not None else 1
@@ -364,13 +409,17 @@ def cmd_launch(args: argparse.Namespace) -> int:
 
     from .agents import launch_agent
 
-    return launch_agent(_P.cwd(), args.agent, relay=args.relay)
+    if getattr(args, "relay", False):
+        print("relay mode was removed in 2.1.0 (it cannot drive TTY agents); "
+              "use terminal hand-over instead.", file=sys.stderr)
+        return 2
+    return launch_agent(_P.cwd(), args.agent)
 
 
 def run_meta_key() -> int:
     import getpass
 
-    from .meta_ai import DEFAULT_MODEL, store_key
+    from .meta_ai import store_key
 
     key = getpass.getpass("Meta API key (hidden, blank cancels): ")
     if not key.strip():
@@ -382,7 +431,8 @@ def run_meta_key() -> int:
         print(str(exc), file=sys.stderr)
         return 1
     print(f"key stored at {path} (0600, outside any repo). It is never logged or shared.")
-    print(f"AI extras will use model {DEFAULT_MODEL} and say so on every use.")
+    print("note: Meta AI extras are parked in this release (model/endpoint unverified); "
+          "the key is stored but no AI call is made.")
     return 0
 
 
@@ -475,17 +525,24 @@ def build_parser() -> argparse.ArgumentParser:
     pask.add_argument("--task", default="")
     pask.add_argument("--area", default="")
     pask.add_argument("--options", default="", help="up to 3 options separated by |")
+    pask.add_argument("--wait", action="store_true",
+                      help="wait (foreground, no daemon) until the developer answers")
+    pask.add_argument("--timeout", type=float, default=600.0, metavar="SECONDS",
+                      help="with --wait: give up after this many seconds (exit 2)")
     pask.set_defaults(func=cmd_ask)
     pbox = sub.add_parser("inbox", help="list pending agent questions, or read one answer")
     pbox.add_argument("--answer", default=None, metavar="ID", help="print the answer for a question id")
+    pbox.add_argument("--wait", action="store_true",
+                      help="with --answer: wait until answered (exit 2 on timeout)")
+    pbox.add_argument("--timeout", type=float, default=600.0, metavar="SECONDS",
+                      help="with --wait: give up after this many seconds")
     pbox.set_defaults(func=cmd_inbox)
     pw = sub.add_parser("watch", help="opt-in foreground watcher for agent questions (Ctrl-C stops)")
     pw.add_argument("--interval", type=float, default=2.0)
     pw.add_argument("--once", action="store_true", help="check once and exit")
     pw.set_defaults(func=cmd_watch)
-    pln = sub.add_parser("launch", help="run your own agent here, return to collabai on exit")
+    pln = sub.add_parser("launch", help="run your own agent here (terminal hand-over), return on exit")
     pln.add_argument("--agent", required=True, help="claude, codex, or muse")
-    pln.add_argument("--relay", action="store_true", help="experimental line relay instead of terminal hand-over")
     pln.set_defaults(func=cmd_launch)
     return p
 

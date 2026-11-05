@@ -53,12 +53,15 @@ owner-proofed — each item needs pasted terminal output before it is done):
 - Easy Remember: `@` file picker, inferred area, remembered agent, confirm.
 - Harness fits one screen; beacon animates in the header, not the bottom.
 - Agent question inbox (`ask`/`inbox`, menu 2) plus opt-in foreground
-  `watch`; agents launchable from the harness (menu 7, relay is
-  experimental and line-based).
-- Optional Meta AI extras (menu 8): key at `~/.config/collabai/meta.key`
-  (`0600`, outside any repo), default model `meta-spark-1.3`. The model
-  id and endpoint are unverified until an owner-pasted smoke call passes.
-- Docs rewritten for judges; README carries a beta note.
+  `watch`; agents launchable from the harness (menu 7, hand-over only).
+- Meta AI extras (menu 8) are PARKED in 2.1.0: key storage at
+  `~/.config/collabai/meta.key` (`0600`, outside any repo) remains, but
+  `META_VERIFIED = False` so no AI call is made until an owner-pasted
+  smoke call verifies the model id and endpoint.
+- v2.1.0: relay launch removed, `ask --wait` / `inbox --wait` added,
+  provider boundary disclosed in `doctor`/adapters/wizard, beta note
+  replaced by stated known limits. Still unverified until owner pastes
+  the full suite and release proofs.
 
 Still open: two-real-developer test and Git-check warning beat are not
 yet proofed. Exclude agent-prompting files (`System.md`,
@@ -73,11 +76,11 @@ yet proofed. Exclude agent-prompting files (`System.md`,
 - `collabai/live/server.py` — `State`, `make_token`, `valid_event`, `run_host`.
 - `collabai/live/client.py` — `get_token`, `post_event`, `fetch_feed`.
 - `collabai/git_awareness.py` — explicit fetch plus upstream relevance check.
-- `collabai/harness.py` — no-args menu, `@` picker, inbox/launch/games/AI forms.
+- `collabai/harness.py` — no-args menu, `@` picker, inbox/launch/AI forms.
 - `collabai/updater.py` — `--update` (verified download, rollback) and `--uninstall`.
-- `collabai/notify.py` — `.collabai/inbox/` questions (24h) and foreground `watch`.
-- `collabai/agents.py` — launch claude/codex/muse (hand-over or line relay).
-- `collabai/meta_ai.py` — optional Meta extras; key outside any repo, metadata only.
+- `collabai/notify.py` — `.collabai/inbox/` questions (24h), foreground `watch`, `--wait` polling.
+- `collabai/agents.py` — launch claude/codex/muse (terminal hand-over only).
+- `collabai/meta_ai.py` — Meta extras, parked in 2.1.0; key outside any repo.
 - `install.sh` — `curl -fsSL` installer to `~/.local`, no sudo, optional Meta key at the end.
 - `docs/` — SSH guide, privacy model, short architecture note, short demo sketch.
 

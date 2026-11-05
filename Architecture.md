@@ -129,12 +129,15 @@ animates its beacon in the header line, and picks project files with `@`
   that watches while the harness is not on screen, and stopping it
   leaves nothing running. No silent daemon is ever installed.
 - `collabai/agents.py`: menu 7 launches `claude`/`codex`/`muse` in the
-  harness (terminal hand-over, or an experimental line relay). The
-  developer types every answer and command approval; nothing auto-runs.
-- `collabai/meta_ai.py`: optional Meta AI extras behind a key stored at
-  `~/.config/collabai/meta.key` (`0600`, outside any repo; env override).
-  Default model `meta-spark-1.3`, named on every use. Metadata-only
-  inputs, output never auto-saved. No key: identical v1 behaviour.
+  harness by terminal hand-over only. The experimental line relay was
+  removed in 2.1.0 (its pipes are not a TTY, so TTY agents exited at
+  once). Questions arriving during hand-over are flagged on exit.
+  `ask --wait` / `inbox --answer <id> --wait` let an agent wait in the
+  foreground for an answer; collabai never pushes into a running session.
+- `collabai/meta_ai.py`: Meta AI extras, PARKED in 2.1.0
+  (`META_VERIFIED = False`; model id/endpoint unverified, no AI call is
+  made). Key storage at `~/.config/collabai/meta.key` (`0600`, outside
+  any repo; env override) is unchanged and harmless.
 
 ### Installer (`install.sh`)
 
@@ -145,9 +148,9 @@ under `~/.local/share/collabai-<v>`, verify `collabai/__main__.py` layout,
 write a `~/.local/bin/collabai` shim, no sudo. Always instruct users to
 download-then-inspect rather than blind-piping. Clean install of v1.0.1
 was owner-proven; the v2.0.0 clean install and self-update still need an
-owner-pasted proof against a published release. At the end of install,
-the script offers `collabai --meta-key` (hidden prompt, blank skips;
-model `meta-spark-1.3`).
+owner-pasted proof against a published release. Since 2.1.0 the
+installer no longer offers a Meta key (extras parked); `--meta-key`
+remains available manually.
 
 ## Repo shape and extension points
 
@@ -163,7 +166,8 @@ This project verifies manually: the implementing agent writes exact terminal
 steps; the owner runs them and pastes output; only then is behaviour done.
 Re-run history: skeleton, memory, both adapters, recall, live happy path,
 both Git cases, `decide`, and the v1.0.1 clean install passed (owner-pasted).
-v2 additions (updater, `@` picker, inbox/watch, launch, Meta extras, games)
-are covered by unit tests and still need owner-pasted terminal proof.
+v2 additions (updater, `@` picker, inbox/watch, launch) and the v2.1.0
+changes (relay removal, `ask --wait`, Meta parking) are covered by unit
+tests and still need owner-pasted terminal proof.
 Before tagging: secret-scan the repo, check `.collabai/` permissions,
 fuzz `/events`, confirm token expiry, and clean-uninstall in a scratch dir.

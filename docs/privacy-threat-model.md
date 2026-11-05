@@ -1,4 +1,4 @@
-# Privacy and threat model (v2.0.0)
+# Privacy and threat model (v2.1.0)
 
 Defaults: transcripts never captured, memory local-only, Live Share off,
 fetch opt-in off, telemetry off, no extra inference.
@@ -11,9 +11,10 @@ v2 additions, same rules:
   leaves nothing running.
 - The Meta key (optional) is stored only at `~/.config/collabai/meta.key`
   (`0600`, outside any repo), never logged, and stripped from launched
-  agents' environments. AI extras send collabai metadata only (task names,
-  areas, file names, decisions) — never file contents or transcripts —
-  and save nothing unless the developer saves the output.
+  agents' environments. Meta AI extras are parked in 2.1.0: the model id
+  and endpoint are unverified, so no AI call is made at all. When
+  unparked, extras will send collabai metadata only (task names, areas,
+  file names, decisions) — never file contents or transcripts.
 - Self-update downloads release tarballs over HTTPS only and verifies
   `.sha256` fail-closed before extracting, like the installer.
 
@@ -48,6 +49,11 @@ Live Share boundaries (roadmap — deferred, not a shipped v1.0.0 workflow):
 - Remote events are untrusted data: displayed under a banner, control
   characters stripped, never executed and never injected as instructions.
 
-Disclosure: injected context reaches your chosen model provider. Unsigned or
-unreviewed install scripts must be inspected before running — download the
-release script, read it, verify the checksum step runs, then execute.
+Disclosure: injected context reaches your chosen model provider. This
+cannot be removed by collabai; it is minimised (context is capped at
+~1,000 chars, empty when irrelevant, secret-scanned at write time) and
+disclosed in `collabai doctor`, in both adapter installers, and in the
+first-run wizard. Preview exactly what would be sent at any time with
+`collabai context --files "<paths>"`. Unsigned or unreviewed install
+scripts must be inspected before running — download the release script,
+read it, verify the checksum step runs, then execute.

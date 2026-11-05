@@ -145,6 +145,39 @@ def read_answer(root: Path, qid: str) -> str | None:
     return str(rec["answer"]) if rec and rec.get("answer") else None
 
 
+def has_question(root: Path, qid: str) -> bool:
+    """True when a question (or its answer) exists for `qid`."""
+    box = _inbox(root)
+    return (box / f"q-{qid}.json").exists() or (box / f"a-{qid}.json").exists()
+
+
+def wait_for_answer(root: Path, qid: str, timeout_seconds: float = 600.0,
+                    poll_seconds: float = 2.0) -> str | None:
+    """Poll for an answer until it arrives, the question expires, or timeout.
+
+    Foreground only, no daemon: this is the opt-in blocking form of the
+    inbox. Returns the answer text, or None on timeout/expiry. A timeout
+    of 0 checks exactly once. Callers map None to their own exit code.
+    """
+    timeout = max(0.0, float(timeout_seconds))
+    poll = max(0.05, float(poll_seconds))
+    deadline = time.monotonic() + timeout
+    while True:
+        answer = read_answer(root, qid)
+        if answer is not None:
+            return answer
+        # Expired questions are pruned by list_pending; stop waiting then.
+        if not has_question(root, qid):
+            return None
+        rec = _load(_inbox(root) / f"q-{qid}.json")
+        if rec is not None and _expired(rec, _now()):
+            return None
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return None
+        time.sleep(min(poll, remaining))
+
+
 def pending_alert(root: Path, alerted: set[str]) -> str:
     """Alert text for questions not yet alerted on; updates `alerted`.
 

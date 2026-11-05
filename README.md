@@ -20,13 +20,13 @@ export PATH="$HOME/.local/bin:$PATH"
 collabai --version
 ```
 
-The installer downloads the release tarball and its `.sha256` over HTTPS, verifies the checksum before extracting, and writes a `~/.local/bin/collabai` shim. At the end it offers one optional step: a Meta API key for AI extras (see below). Blank skips it.
+The installer downloads the release tarball and its `.sha256` over HTTPS, verifies the checksum before extracting, and writes a `~/.local/bin/collabai` shim. Meta AI extras are parked in this release (see below), so no key is requested at install time.
 
 Update or remove an installed copy:
 
 ```bash
 collabai --update              # latest release, checksum-verified
-collabai --update --to 2.0.0   # a pinned version
+collabai --update --to 2.1.0   # a pinned version
 collabai --uninstall           # asks separately: shim / versions / private state
 ```
 
@@ -59,23 +59,19 @@ Git awareness across machines: Dev A pushes as usual. Dev B runs `collabai git-f
 `collabai` with no arguments opens a one-screen menu:
 
 - **Collab Bot (1)** — who is working on what, overlaps first, one suggested next step.
-- **Inbox (2)** — an agent that needs you leaves a short question (`collabai ask`); you answer it here without leaving the harness. Questions expire after 24 hours and are shown as untrusted data.
+- **Inbox (2)** — an agent that needs you leaves a short question (`collabai ask`); you answer it here without leaving the harness. With `collabai ask --wait`, the agent waits in the foreground for your answer (exit 2 on timeout); questions expire after 24 hours and are shown as untrusted data. collabai cannot push into a running agent session — the agent waits or comes back for the answer.
 - **Remember (3)** — save a note. Type `@` to pick project files instead of typing paths; area and agent are filled in from last time.
 - **Recall (4), Decide (5), Share (6)** — find past decisions, record an approved choice, print one relay line to paste to your pair. collabai never sends anything itself.
-- **Launch (7)** — run `claude`, `codex`, or `muse` from inside the harness and return when it exits. An experimental relay mode surfaces the agent's questions line by line; you type every answer and approval yourself.
-- **AI (8)** — optional Meta AI extras, below.
+- **Launch (7)** — run `claude`, `codex`, or `muse` from inside the harness by terminal hand-over and return when it exits. The agent owns the terminal while it runs (notifications pause); questions that arrived meanwhile are flagged on return.
+- **AI (8)** — Meta AI extras, parked in this release (below).
 - **Git check (9), Doctor (10)** — fetched-change warnings and setup check.
 - **Quit (11)** — exit. The menu is numbered in display order, 1 to 11, and a light Collab Bot animation runs at the top of the screen while it waits.
 
 `collabai watch` is an opt-in, foreground-only watcher that prints new agent questions as they arrive. Ctrl-C stops it; nothing keeps running afterwards.
 
-## Optional: Meta AI extras
+## Meta AI extras (parked in this release)
 
-At install, or later with `collabai --meta-key`, you can store a Meta API key. It is kept at `~/.config/collabai/meta.key` (`0600`, outside any repo), can be overridden by `COLLABAI_META_API_KEY`, and removed with `collabai --meta-key-remove`. The default model is `meta-spark-1.3`, and the harness names the model on every use.
-
-With a key, menu 8 offers: draft a note from picked files and a hint, explain an overlap, a standup one-liner, and a fortune cookie. Inputs are collabai metadata only — never file contents, transcripts, or secrets. Output is shown for you to keep or discard; nothing is saved unless you save it.
-
-Without a key, AI extras are off and collabai behaves exactly as the base harness.
+The Meta AI extras (menu 8) are parked in 2.1.0: the model id and endpoint have not been verified with a live call, so menu 8 explains this and collabai makes no AI call. `collabai --meta-key` still stores a key at `~/.config/collabai/meta.key` (`0600`, outside any repo; `COLLABAI_META_API_KEY` overrides, `--meta-key-remove` deletes) for when the extras are unparked. Everything else works exactly as without a key.
 
 ## Commands
 
@@ -85,8 +81,8 @@ Without a key, AI extras are off and collabai behaves exactly as the base harnes
 | `init`, `status`, `doctor` | Set up and inspect local state |
 | `remember`, `context`, `decide` | Save and recall approved notes and decisions |
 | `bot` | Collab Bot panel |
-| `ask`, `inbox`, `watch` | Agent questions: leave, list/answer, watch |
-| `launch --agent <name>` | Run an agent here, return on exit |
+| `ask [--wait]`, `inbox [--answer <id> [--wait]]`, `watch` | Agent questions: leave, list/answer, watch |
+| `launch --agent <name>` | Run an agent here (terminal hand-over), return on exit |
 | `git-fetch`, `git-check` | Explicit fetch, relevance warning |
 | `--update`, `--uninstall` | Update or remove the installed copy |
 | `--meta-key`, `--meta-key-remove` | Manage the optional Meta key |
@@ -97,7 +93,7 @@ Without a key, AI extras are off and collabai behaves exactly as the base harnes
 - Memory and questions live in gitignored `.collabai/` (`0700`/`0600`). The Meta key lives outside the repo, also `0600`.
 - Secrets are refused at write time. Nothing is transmitted by collabai itself except checksum-verified release downloads and, only with your key, metadata you approve for an AI extra.
 - No network listener runs by default. Live Share is deferred (see Roadmap).
-- Context your agent injects reaches your chosen model provider. That boundary is yours; see [the privacy and threat model](docs/privacy-threat-model.md).
+- Context your agent injects reaches your chosen model provider. That boundary is yours; preview exactly what would be sent with `collabai context --files "<paths>"`. See [the privacy and threat model](docs/privacy-threat-model.md).
 
 ## Troubleshooting
 
@@ -110,6 +106,6 @@ Without a key, AI extras are off and collabai behaves exactly as the base harnes
 
 - **Live Share (deferred).** Temporary loopback sessions with SSH join. The loopback core and hardening are built; it returns only when the two-network transport story is designed and proven end to end. See [docs/ssh-tunnel.md](docs/ssh-tunnel.md).
 
-Status: v2.0.0. Python 3.11+ stdlib only. Apache-2.0.
+Status: v2.1.0. Python 3.11+ stdlib only. Apache-2.0. See [CHANGELOG.md](CHANGELOG.md).
 
-> Beta project: built for a hackathon, tested by its author, and still rough in places. The relay launch mode and Meta AI extras are experimental. Issues and sharp edges are expected — please report them.
+Known limits, by design: launch is terminal hand-over only; agent questions are answered by waiting (`--wait`) or on the agent's next read, never pushed into a running session; Meta AI extras are parked until their endpoint is verified; Live Share is deferred (above).

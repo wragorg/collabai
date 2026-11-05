@@ -46,9 +46,9 @@ or sends itself.
 
 ## Scenario 4 — an agent asks, the developer stays put
 
-Dev B launches Codex from the harness (menu 7). The agent leaves a short
-question with `collabai ask`; the harness banner shows it, Dev B answers in
-Inbox (menu 2), and the agent reads the answer back.
+Dev B launches Codex from the harness (menu 7, terminal hand-over). The
+agent asks with `collabai ask --wait`; the harness banner shows it, Dev B
+answers in Inbox (menu 2), and the waiting command prints the answer.
 
 ## Scenario 5 — privacy close
 

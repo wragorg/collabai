@@ -24,6 +24,12 @@ from pathlib import Path
 DEFAULT_MODEL = "meta-spark-1.3"
 API_URL = "https://api.meta.ai/v1/chat/completions"
 MAX_OUTPUT = 1000
+# The model id and endpoint above are owner-supplied and UNVERIFIED: no
+# live smoke call has been owner-pasted yet. Until one passes, Meta AI
+# extras are parked — chat() refuses and menu 8 explains — so a
+# professional release never presents an unproven endpoint as working.
+# Flip to True only with a pasted successful smoke call on record.
+META_VERIFIED = False
 
 
 class MetaError(RuntimeError):
@@ -98,6 +104,11 @@ def _post(url: str, payload: dict, key: str) -> bytes:
 
 def chat(messages: list[dict], root: Path, poster=None, key: str | None = None) -> str:
     """One chat call. Prints the model in use. Raises MetaError on failure."""
+    if not META_VERIFIED:
+        raise MetaError(
+            "Meta AI extras are parked in this release (model/endpoint "
+            "unverified); harness continues without AI"
+        )
     api_key = key if key is not None else load_key()
     if not api_key:
         raise MetaError("no Meta key set (run: collabai --meta-key)")

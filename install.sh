@@ -5,7 +5,7 @@
 set -eu
 
 OWNER="${COLLABAI_OWNER:-wragorg}"
-VERSION="${COLLABAI_VERSION:-2.0.0}"
+VERSION="${COLLABAI_VERSION:-2.1.0}"
 PREFIX="${HOME}/.local"
 BIN="${PREFIX}/bin/collabai"
 
@@ -100,10 +100,7 @@ chmod +x "${BIN}"
 echo "installed to ${BIN}. ensure ${PREFIX}/bin is on PATH."
 "${BIN}" --version
 
-# Optional Meta AI key. Skipped without a terminal. Stored only by
-# `collabai --meta-key` (hidden prompt, ~/.config/collabai/meta.key 0600),
-# never in a repo or in .collabai/. Blank answer there skips it.
-if [ -t 0 ]; then
-  echo "optional: add a Meta API key for AI extras (blank skips; model meta-spark-1.3 will be used)"
-  "${BIN}" --meta-key || echo "note: no Meta key stored; collabai works as before." >&2
-fi
+# Meta AI extras are parked in this release (model/endpoint unverified),
+# so no key is requested at install time. `collabai --meta-key` still
+# stores a key (0600, outside any repo) for when they are unparked.
+echo "note: Meta AI extras are parked in this release; no key requested."

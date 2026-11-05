@@ -20,7 +20,7 @@ MENU: list[tuple[str, str, str, str]] = [
     ("5", "DO SOMETHING", "Record a choice we approved", "Decide"),
     ("6", "DO SOMETHING", "Send a decision to my pair", "Share"),
     ("7", "DO SOMETHING", "Run an agent here", "Launch"),
-    ("8", "DO SOMETHING", "Collab Bot AI extras (needs Meta key)", "AI"),
+    ("8", "DO SOMETHING", "Collab Bot AI extras (parked)", "AI"),
     ("9", "CHECK", "Did upstream change my files?", "Git check"),
     ("10", "CHECK", "Is my setup OK?", "Doctor"),
     ("11", "LEAVE", "Leave", "Quit"),
@@ -431,15 +431,19 @@ def _launch_form(root: Path, input_fn) -> None:
     picked = _ask(input_fn, "launch which number (blank = back): ")
     if not picked.isdigit() or not 1 <= int(picked) <= len(names):
         return
-    mode = _ask(input_fn, "[t]erminal hand-over or [r]elay lines? [t/r]: ").lower()
-    launch_agent(root, names[int(picked) - 1], relay=mode == "r", input_fn=input_fn)
+    launch_agent(root, names[int(picked) - 1])
 
 
 def _ai_form(root: Path, input_fn) -> None:
     from .bot import build_snapshot
     from .memory import load_records
-    from .meta_ai import MetaError, chat, draft_note_messages, fun_messages, load_key
+    from .meta_ai import META_VERIFIED, MetaError, chat, draft_note_messages, fun_messages, load_key
 
+    if not META_VERIFIED:
+        print("Meta AI extras are parked in this release: the model id and "
+              "endpoint are unverified, so no AI call is made.")
+        print("collabai works exactly as before without them.")
+        return
     if not load_key():
         print("Meta AI is off: no key set. Add one with: collabai --meta-key")
         print("without a key, collabai works exactly as before.")
@@ -472,6 +476,9 @@ def _wizard(root: Path, input_fn) -> None:
         print("ok — menu still works; run setup any time with: collabai init")
         return
     _do_init(root)
+    from .cli import PROVIDER_BOUNDARY
+
+    print(PROVIDER_BOUNDARY)
     pick = _ask(input_fn, "hook up which agent? [c]laude / c[x] codex / [s]kip: ").lower()
     if pick == "c":
         from .adapters import claude as _claude

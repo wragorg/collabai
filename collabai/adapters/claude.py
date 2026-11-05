@@ -51,9 +51,12 @@ def apply(root: Path) -> int:
         for hook in entry.get("hooks", []):
             if hook.get("command") == HOOK_COMMAND:
                 print("hook already present")
+                print("note: lines returned by `collabai context` go to your model provider.")
                 return 0
     starts.append({"matcher": "*", "hooks": [{"type": "command", "command": HOOK_COMMAND}]})
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     print(f"installed SessionStart hook in {target} (private, uncommitted)")
+    print("note: lines returned by `collabai context` go to your model provider; "
+          'preview with: collabai context --files "<paths>"')
     return 0

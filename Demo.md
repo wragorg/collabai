@@ -27,13 +27,13 @@ Show that `context --files "unrelated/billing.py"` prints nothing (zero added to
 
 ## Beat 2 — stay in the harness
 
-Dev B opens `collabai` and picks Launch (7) to run Codex without leaving collabai. The agent needs a decision and leaves a question instead of blocking:
+Dev B opens `collabai` and picks Launch (7) to run Codex by terminal hand-over without leaving collabai. The agent needs a decision and waits for it in the foreground:
 
 ```bash
-collabai ask --agent codex --question "Session cookies or local tokens?" --options "cookies|tokens"
+collabai ask --agent codex --question "Session cookies or local tokens?" --options "cookies|tokens" --wait --timeout 600
 ```
 
-The harness banner shows the waiting question. Dev B picks Inbox (2), chooses `cookies`, and keeps working. The agent reads the answer with `collabai inbox --answer <id>`. Only the question and answer text crossed — no code, diffs, prompts, or transcripts. `collabai watch` does the same notification job in a foreground window.
+The harness banner shows the waiting question. Dev B picks Inbox (2), chooses `cookies`, and the waiting command prints the answer (exit 2 means timed out; the agent can then read it later with `collabai inbox --answer <id>`). collabai cannot push into a running agent session — the agent waits or comes back. Only the question and answer text crossed — no code, diffs, prompts, or transcripts. `collabai watch` does the same notification job in a foreground window.
 
 ## Beat 3 — Git warning, then privacy close
 
