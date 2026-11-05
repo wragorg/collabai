@@ -5,7 +5,7 @@
 set -eu
 
 OWNER="${COLLABAI_OWNER:-wragorg}"
-VERSION="${COLLABAI_VERSION:-2.2.0}"
+VERSION="${COLLABAI_VERSION:-2.2.1}"
 PREFIX="${HOME}/.local"
 BIN="${PREFIX}/bin/collabai"
 

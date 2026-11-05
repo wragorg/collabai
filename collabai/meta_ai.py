@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import os
+import ssl
 import sys
 import urllib.error
 import urllib.request
@@ -98,6 +99,14 @@ def model_for(root: Path) -> str:
     return model
 
 
+def _describe_ssl_error(exc: Exception) -> str:
+    return (
+        "TLS certificate verification failed: this Python has no CA "
+        "bundle (common on macOS python.org installs). Run the "
+        "'Install Certificates.command' shipped with your Python, or "
+        f"set SSL_CERT_FILE to a CA bundle, then try again ({exc})")
+
+
 def _describe_http_error(exc: urllib.error.HTTPError) -> str:
     try:
         body = exc.read().decode("utf-8", errors="replace")[:200].strip()
@@ -166,6 +175,14 @@ def _chat(messages: list[dict], root: Path, poster=None, key: str | None = None,
         raise
     except urllib.error.HTTPError as exc:
         raise MetaError(_describe_http_error(exc)) from exc
+    except ssl.SSLCertVerificationError as exc:
+        raise MetaError(_describe_ssl_error(exc)) from exc
+    except urllib.error.URLError as exc:
+        if isinstance(exc.reason, ssl.SSLCertVerificationError):
+            raise MetaError(_describe_ssl_error(exc.reason)) from exc
+        raise MetaError(
+            f"Meta call failed (network: {exc.reason}); harness continues "
+            "without AI") from exc
     except (OSError, ValueError, KeyError, IndexError, TypeError) as exc:
         if "timed out" in str(exc).lower() or "timeout" in str(exc).lower():
             raise MetaError("Meta call timed out; check the network and try again") from exc

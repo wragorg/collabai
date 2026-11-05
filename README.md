@@ -26,7 +26,7 @@ Update or remove an installed copy:
 
 ```bash
 collabai --update              # latest release, checksum-verified
-collabai --update --to 2.2.0   # a pinned version
+collabai --update --to 2.2.1   # a pinned version
 collabai --uninstall           # asks separately: shim / versions / private state
 ```
 
@@ -116,6 +116,6 @@ A bad key, wrong model, or rate limit each prints one readable line naming the p
 
 - **Live Share (deferred).** Temporary loopback sessions with SSH join. The loopback core and hardening are built; it returns only when the two-network transport story is designed and proven end to end. See [docs/ssh-tunnel.md](docs/ssh-tunnel.md).
 
-Status: v2.2.0. Python 3.11+ stdlib only. Apache-2.0. See [CHANGELOG.md](CHANGELOG.md).
+Status: v2.2.1. Python 3.11+ stdlib only. Apache-2.0. See [CHANGELOG.md](CHANGELOG.md).
 
 Known limits, by design: launch is terminal hand-over only; agent questions are answered by waiting (`--wait`) or on the agent's next read, never pushed into a running session; Meta AI chat sends only what you type at its prompt; Live Share is deferred (above).

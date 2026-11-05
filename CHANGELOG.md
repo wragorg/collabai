@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.2.1
+
+- Fixed: TLS certificate failures (macOS Python with no CA bundle) now
+  print one mapped line naming the cause and the `Install
+  Certificates.command` fix, instead of a generic `Meta call failed`.
+  Verification is never disabled.
+
 ## 2.2.0
 
 - Fixed: Meta model id corrected from the never-valid `meta-spark-1.3`

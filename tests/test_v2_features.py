@@ -308,6 +308,19 @@ class MetaSmokeTests(unittest.TestCase):
                 meta_ai.smoke_test(Path(tmp), poster=_bad_poster, key="k")
         self.assertIn("rate limit", str(ctx.exception))
 
+    def test_ssl_error_maps_to_certificate_hint(self):
+        import ssl
+        import urllib.error
+
+        def _ssl_poster(url, payload, key):
+            raise urllib.error.URLError(
+                ssl.SSLCertVerificationError(1, "certificate verify failed"))
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(meta_ai.MetaError) as ctx:
+                meta_ai.smoke_test(Path(tmp), poster=_ssl_poster, key="k")
+        self.assertIn("Install Certificates.command", str(ctx.exception))
+
     def test_empty_content_is_a_clear_error(self):
         def _empty_poster(url, payload, key):
             return json.dumps(
